@@ -57,6 +57,11 @@ class Settings:
 
     # 알림
     mattermost_webhook_url: str | None
+    # 채널별 웹훅 (선택) — 없으면 기본 URL + 텍스트 태그. 기본 웹훅이 채널 고정이라 payload
+    # channel 오버라이드는 불가 (report/phase-3 §6, 2026-09 확인).
+    mattermost_webhook_research: str | None
+    mattermost_webhook_decisions: str | None
+    mattermost_webhook_alerts: str | None
 
     # 캐시 / 페이퍼 브로커
     cache_ttl_hours: int
@@ -90,6 +95,9 @@ def get_settings() -> Settings:
         nasdaq_data_link_api_key=os.getenv("NASDAQ_DATA_LINK_API_KEY"),
         manual_ism_pmi=float(manual_ism) if manual_ism else None,
         mattermost_webhook_url=os.getenv("MATTERMOST_WEBHOOK_URL"),
+        mattermost_webhook_research=os.getenv("MM_WEBHOOK_RESEARCH"),
+        mattermost_webhook_decisions=os.getenv("MM_WEBHOOK_DECISIONS"),
+        mattermost_webhook_alerts=os.getenv("MM_WEBHOOK_ALERTS"),
         cache_ttl_hours=int(os.getenv("CACHE_TTL_HOURS", "24")),
         paper_commission_pct=float(os.getenv("PAPER_COMMISSION_PCT", "0.001")),
         paper_fx_spread_pct=float(os.getenv("PAPER_FX_SPREAD_PCT", "0.005")),

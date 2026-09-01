@@ -215,6 +215,8 @@ CrewAI `task_callback` 훅 → 각 에이전트 노트 완성 시 Mattermost 게
 | `#aegis-alerts` | 위기 알림 + 주간 최종 요약 |
 
 - 구현: 인커밍 웹훅 1개 + payload `channel` 오버라이드, 또는 채널별 웹훅 3개 (`.env`: `MM_WEBHOOK_RESEARCH` 등)
+- ⚠️ **2026-09 확인**: 현 웹훅(`chat.taeuk.site`)은 **채널 고정** — payload `channel` 넣으면 404.
+  → `notify.post` 는 채널별 웹훅 있으면 라우팅, 없으면 기본 URL + 텍스트 `[채널]` 태그.
 - 각 게시 = `에이전트명 · 역할 이모지 · 핵심 요약` + 상세 접기
 - 전체 원문 I/O → `outputs/runs/<날짜>/<순번>_<에이전트>.json`
 - `step_callback`(사고·행동 단계)은 파일 로그만 (Mattermost엔 시끄러움)
