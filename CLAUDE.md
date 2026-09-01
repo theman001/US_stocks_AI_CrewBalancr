@@ -14,9 +14,9 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-Phase 3 완료 (3a 코어, 3a-11 보류, 3b 조직 완편). **Phase 4 빌드 중** (가동은 모의투자
-~3개월 데이터 후지만 evaluate/Reviewer/RAG 코드는 지금 만들고 합성데이터로 테스트).
-4-0~4-4 완료 (태깅·evaluate·⑨ Reviewer·RAG 저장·recall+주입), 다음 4-5(거버넌스 CLI). 4-6 튜닝·4-7 O-D 는 실데이터 후. `docs/BUILD_PLAN.md` 참조.
+Phase 3 완료 (3a 코어, 3a-11 보류, 3b 조직 완편). **Phase 4 빌드 완료** (4-0~4-5:
+태깅·evaluate·⑨ Reviewer·RAG 저장·recall+주입·거버넌스 CLI — 합성데이터로 테스트).
+4-6 튜닝·4-7 O-D 는 실데이터(~3개월) 후. 가동도 모의투자 데이터 축적 후. `docs/BUILD_PLAN.md` 참조.
 포트 상태는 `state/shadow.json` (organization = 실제, deterministic = 병행 시뮬).
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 1.15, `chromadb`+`FlagEmbedding`(bge-m3) 설치됨 (`uv sync --extra agents --extra diary`).

@@ -51,7 +51,11 @@
   이 회상 1회 계산 → ①②③⑤⑥⑦ 태스크에 주입 (④⑧ 제외), guardrail `extra_allowed` 로
   회상 수치 통과. `schema.clip_tokens` 공용화. 8 tests. 검토: [reviews/4-4.md](reviews/4-4.md)
   (2 rounds, 4 findings). 단일 회상(2단계는 4-6), 콜드스타트 시 임베딩 스킵.
-- [ ] **4-5 거버넌스 CLI** — `python -m aegisvest.diary review`
+- [x] **4-5 거버넌스 CLI** — `aegisvest/diary/governance.py` + `__main__.py`:
+  `python -m aegisvest.diary review` → pending_review 큐 + 신규 SEMI-OPEN 태그 + top-20
+  회상 교훈(+base rate) 리포트. `--approve/--retire/--edit --lesson/--ack-tags` 액션 (재색인은
+  다음 rag 배치). `rag._log_recall` → `state/diary/recall_log.jsonl`. 6 tests. 검토:
+  [reviews/4-5.md](reviews/4-5.md) (2 rounds, 0 findings). 교훈 충돌 탐지는 4-6.
 - [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정
 - [ ] **4-7 (추후) O-D** — 학습형 랭킹 가중 (채점 항목 ≥ ~150)
 

@@ -85,6 +85,8 @@ uv run pytest -x -q
 - recall (`tests/test_diary_rag.py`): 콜드스타트 무반환, 유사도 < 0.55 제외, attribution:low 는
   코사인 ≥ 0.62 필요, crisis+|score|≥2 강제 다양성, `format_recall` top-1 중간요약+카드,
   `build_query` 결정론 태그 (claim_type·sleeve 제외); 주입 위치 = ①②③⑤⑥⑦ 만 (`test_organization`)
+- 거버넌스 (`tests/test_diary_governance.py`): 리포트에 pending_review·신규태그·회상 top-N 노출,
+  approve/retire/edit_lesson(→lesson_vector_id 초기화)/ack-tags, recall_log → base rate
 
 ## 통과 기준
 - 모든 테스트 green, ruff/mypy 클린

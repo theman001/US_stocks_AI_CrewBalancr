@@ -14,6 +14,7 @@ cron: `evaluate && reviewer && python -m aegisvest.diary.rag` (주간 배치).
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from datetime import UTC, datetime
@@ -232,7 +233,9 @@ class DiaryRAG:
             and not (c.attribution == "low" and c.cosine < _ATTR_LOW_MIN_COSINE)
         ]
         kept.sort(key=lambda c: c.rank, reverse=True)
-        return _diversify(kept, k)
+        chosen = _diversify(kept, k)
+        _log_recall(chosen)  # §8 거버넌스 "가장 많이 회상된 교훈" + 4-7 O-D 신호
+        return chosen
 
 
 def backfill() -> dict[str, int]:
@@ -304,6 +307,20 @@ def _recency(cand_tags: list[str], meta: dict[str, Any], halflife: int) -> float
     ref = str(meta.get("evaluated_at") or "") or str(meta.get("created_at") or "")
     decay = math.exp(-_months_since(ref) / halflife) if ref else 0.0
     return max(decay, 0.15 if "regime:crisis" in cand_tags else 0.0)  # 위기 항목 상시 후보
+
+
+def _log_recall(cases: list[RecalledCase]) -> None:
+    # ponytail: append-only, 주 ~1행 — 연 ~50행이라 로테이션 불필요. 4-7 O-D 신호로도 쓰임.
+    if not cases:
+        return
+    path = get_settings().state_dir / "diary" / "recall_log.jsonl"
+    row = {"at": datetime.now(UTC).isoformat(), "ids": [c.entry_id for c in cases]}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except OSError as e:  # 회상 로그 실패로 크루를 멈추지 않는다
+        _log.warning("recall_log 기록 실패: %s", e)
 
 
 def _diversify(ranked: list[RecalledCase], k: int) -> list[RecalledCase]:

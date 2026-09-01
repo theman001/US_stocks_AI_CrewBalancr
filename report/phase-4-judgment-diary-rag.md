@@ -399,6 +399,15 @@ recency_halflife_months: 18
 - `pending_tags.json` 신규 태그 검토
 - 신규 교훈이 기존 고신뢰 교훈과 충돌 → Reviewer가 플래그한 목록
 
+> **⚠️ 4-5 구현 결정 (2026-09-01) — `aegisvest/diary/governance.py` + `__main__.py`.**
+> - `report_text()` = pending_review 큐 + 신규 SEMI-OPEN 태그 + top-20 회상 교훈(+claim_type
+>   base rate). 회상 빈도는 `rag._log_recall` 가 `state/diary/recall_log.jsonl` 에 주간 append.
+> - 액션 플래그: `--approve` (→approved), `--retire` (→retired), `--edit --lesson` (+`--lesson-card`),
+>   `--ack-tags` (pending_tags.json 비움). RAG 재색인은 다음 `python -m aegisvest.diary.rag`
+>   배치 (거버넌스 CLI 가 bge-m3 를 로드하지 않음). taxonomy YAML 편입은 수동.
+> - **교훈 충돌 탐지는 미구현** — 교훈 임베딩 간 유사도 비교가 필요해 4-6 으로. 지금은
+>   `post_mortem.flags` (4-2 모호성 플래그)만 표시.
+
 ---
 
 ## 9. 콜드 스타트 & 실패 모드
