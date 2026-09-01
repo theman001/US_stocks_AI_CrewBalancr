@@ -62,7 +62,8 @@
 ## 배포 (병행)
 
 - [ ] docker-compose.yml — OMV8 단일 스택 (build.context git URL + configs 인라인 crontab + supercronic)
-- [ ] cron: 감시견 매일 06:30 / 크루 일요일 22:00 / 일기 채점 월요일 23:00 (KST)
+- [ ] cron: 감시견 매일 06:30 / 크루 일요일 22:00 / 일기 배치 월요일 23:00 (KST) —
+  `evaluate && reviewer && rag` 체이닝
 - [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
 - [ ] Radxa Rock 5 ITX 배포 검증 (ARM64)
 

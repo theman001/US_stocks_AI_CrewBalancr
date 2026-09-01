@@ -438,8 +438,8 @@ recency_halflife_months: 18
 
 **cron 추가** (`docker-compose.yml` configs 인라인 crontab):
 ```cron
-# 월요일 23:00 KST — 판단 일기 채점(결정론) + 반성(⑨ Reviewer LLM) 배치 (크루·감시견과 분리)
-0 23 * * 1  flock -n /tmp/eval.lock sh -c 'python -m aegisvest.diary.evaluate && python -m aegisvest.diary.reviewer'
+# 월요일 23:00 KST — 판단 일기 채점(결정론) → 반성(⑨ Reviewer LLM) → RAG 색인 배치 (크루·감시견과 분리)
+0 23 * * 1  flock -n /tmp/eval.lock sh -c 'python -m aegisvest.diary.evaluate && python -m aegisvest.diary.reviewer && python -m aegisvest.diary.rag'
 ```
 
 **의존성 추가**: `chromadb`, `FlagEmbedding` (또는 `sentence-transformers`), bge-m3 가중치 (이미지 빌드 시 다운로드 또는 볼륨 캐시).
