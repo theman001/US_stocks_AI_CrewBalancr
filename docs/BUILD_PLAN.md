@@ -39,7 +39,12 @@
   + SEMI-OPEN 신규태그 → `state/diary/pending_tags.json`. RAG 게이트(§4.3)로 rag_status 확정.
   `ReviewerOutput` 스키마, `DiaryEntry.post_mortem` dict 화. 10 tests(mock LLM). 검토:
   [reviews/4-2.md](reviews/4-2.md). cron: `evaluate && reviewer` 체이닝. 실 DeepSeek 미검증(잔액).
-- [ ] **4-3 RAG 저장** — diary/rag.py (bge-m3 이중벡터 + ChromaDB, 기존 항목 백필)
+- [x] **4-3 RAG 저장** — `diary/rag.py`: `DiaryRAG.index`/`backfill`/`collections`/`lesson_text`
+  + `python -m aegisvest.diary.rag` CLI. bge-m3(지연 로드) 이중 벡터 (situation/lesson),
+  ChromaDB `PersistentClient(state/chroma)` cosine, 자격 `rag_status∈{auto,approved}` &
+  `status∈{reflected,gated}`, `retired`→삭제, 배치 임베딩, id 필드로 재계산 방지. 7 tests
+  (`_embed` mock). 검토: [reviews/4-3.md](reviews/4-3.md) (2 rounds, 1 finding). cron:
+  `evaluate && reviewer && rag`. situation 벡터는 기록시 아닌 백필시 생성 (§5.1 결정 노트).
 - [ ] **4-4 recall + 주입** — DiaryRAG.recall() (Q-D 검색, O-A 랭킹, P-D 포맷) + 에이전트 연결
 - [ ] **4-5 거버넌스 CLI** — `python -m aegisvest.diary review`
 - [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정

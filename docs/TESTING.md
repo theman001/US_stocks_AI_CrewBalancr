@@ -79,6 +79,9 @@ uv run pytest -x -q
 - Reviewer (`tests/test_diary_reviewer.py`, mock LLM): RAG 게이트(레짐콜→pending_review,
   소형 exclusion→auto), 점수 불변·what_happened append, 모호 반성("더 신중")→pending_review 플래그,
   lesson_card 토큰 절삭, SEMI-OPEN 신규태그→pending_tags.json, needs_reflection 아니면 gated·idempotent
+- RAG 저장 (`tests/test_diary_rag.py`, `_embed` mock + ChromaDB tmp): 이중 벡터 색인,
+  gated→situation 만, pending_review 미색인, 재실행 idempotent (재임베딩 0), retired→삭제,
+  배치 임베딩 1회
 - `recall()`: 유사도 < 0.55 → 무반환 (4-4)
 
 ## 통과 기준

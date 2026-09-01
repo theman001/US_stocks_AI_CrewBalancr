@@ -232,6 +232,19 @@ rag_status:
 - **bge-m3** 로컬, 같은 컨테이너 내. RK3588 CPU 1건 ~1–3초, 연 ~200건 임베딩 = 무부담
 - 검색 품질 약하면 `bge-reranker-v2-m3` 크로스 인코더 추가 (top-40 → 재랭킹) — 옵션
 
+> **⚠️ 4-3 구현 결정 (2026-09-01) — `aegisvest/diary/rag.py`.**
+> - **situation 벡터를 기록 시가 아니라 주간 백필 시 생성.** `situation_text` 는 기록 후
+>   불변이라 임베딩 시점 무관하고, 회상 자격(`rag_status ∈ {auto, approved}`)은 채점·게이트
+>   후에야 성립하므로 기록 시점 색인은 실익 없음. 주간 크루 실행 중 bge-m3(2.3GB) 로드도 회피.
+>   `python -m aegisvest.diary.rag` (cron: `evaluate && reviewer && rag`).
+> - **색인 자격**: `rag_status ∈ {auto, approved}` **그리고** `status ∈ {reflected, gated}`.
+>   `evaluated`(채점됐으나 미반성 — DeepSeek 잔액 림보) 는 reflected/gated 로 이동 후 색인.
+>   `retired` → 양쪽 컬렉션에서 삭제.
+> - **lesson 벡터 텍스트** = `post_mortem.lesson` + `lesson_card` + `{event,theme,mistake,signal}`
+>   태그 문장화. `lesson` 없으면 lesson 벡터 미생성 (situation 만).
+> - ChromaDB `hnsw:space=cosine`, 메타데이터에 태그(공백 join)·outcome·regime·sleeve 미러.
+>   배치 임베딩 (situation 일괄 → lesson 일괄), `_embed` 개수 불일치 시 중단.
+
 ---
 
 ## 6. 단계 ⑤ 회상 — `DiaryRAG.recall()`
