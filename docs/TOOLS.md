@@ -4,20 +4,21 @@
 > 관련 Phase 절, 그리고 `.claude/skills/add-tool` 을 읽어라.
 
 ## 공통 규칙
-- `crewai.tools.BaseTool` 상속. `args_schema` 는 Pydantic (모든 필드 단위 명시).
-- **예외 raise 금지.** 실패 시 `{"error": "설명", "field": "필드명"}` 반환.
-- 반환은 JSON 직렬화 가능 dict. 아래 스키마의 **모든 키 포함**, 없는 값은 `None`.
-- 파생 지표는 **툴이 계산해서** 반환 (에이전트에 계산 떠넘기지 말 것).
-- 네트워크 호출은 `data/cache/` 에 TTL 캐시 (`CACHE_TTL_HOURS`, 기본 24).
-- `as_of` (YYYY-MM-DD) 포함. 발표 지연 데이터는 `stale_fields: [str]`.
-- 결정론적: 같은 입력 → 같은 출력.
+- 툴은 **순수 파이썬 함수** `def <name>(...) -> <Model> | ToolError`. CrewAI `BaseTool`
+  래퍼는 3a-9에서 추가 (`.model_dump()`). 결정론 코어·백테스트는 함수 직접 호출.
+- **예외 raise 금지.** 실패 시 `ToolError(error=..., field=...)` 반환.
+- 성공 시 Pydantic 모델 (`aegisvest/schemas.py`). 아래 스키마의 **모든 필드**, 없는 값은 `None`.
+- 파생 지표는 **툴이 계산해서** 반환 (호출자에 계산 떠넘기지 말 것).
+- 네트워크 호출은 `aegisvest/tools/_io.py` 캐시 헬퍼 경유 (TTL `CACHE_TTL_HOURS`, 기본 24).
+- `as_of` (YYYY-MM-DD) 포함. 발표 지연 데이터는 `stale_fields: list[str]`.
+- 결정론적: 같은 입력 → 같은 출력. 아래 `Output:` 표기는 모델 필드.
 
 ---
 
 ## 1. MarketDataTool
-가격·거래량·이동평균·베타·기술지표.
+가격·거래량·이동평균·베타·기술지표. 이력은 항상 5년 조회 (60개월 베타 커버).
 ```
-Input:  ticker: str, lookback_days: int = 400
+Input:  ticker: str
 Output: {
   "ticker": str, "last_price": float, "sma_50": float, "sma_200": float,
   "sma_50_prev": float, "sma_200_prev": float,

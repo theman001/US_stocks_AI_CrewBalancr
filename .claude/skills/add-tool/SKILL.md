@@ -11,26 +11,30 @@ Layer 0 툴은 **숫자를 만드는 유일한 곳**이다. 에이전트는 이 
 
 ## 규칙 (전부 준수)
 
-1. `crewai.tools.BaseTool` 상속. `name`, `description`(단위 명시), `args_schema`.
-2. `args_schema` 는 Pydantic. 모든 필드 `Field(description=..., 단위)`. 기본값 신중히.
-3. **예외를 raise 하지 않는다.** 실패 시 `{"error": "설명", "field": "필드명"}` 반환.
-   호출 에이전트가 `DATA_UNAVAILABLE` 로 처리한다.
-4. 반환은 항상 JSON 직렬화 가능 dict. `docs/TOOLS.md` 스키마의 **모든 키** 포함,
-   타입 일치. 없는 값은 `None` (키 누락 금지).
+1. 툴은 **순수 파이썬 함수** `def <name>(...) -> <Model> | ToolError`.
+   CrewAI `BaseTool` 래퍼는 3a-9에서 별도로 추가 (`.model_dump()` 호출). 결정론
+   코어·백테스트는 함수를 직접 호출한다 (CrewAI 미포함).
+2. 인자는 명시적 타입힌트. 출력은 `aegisvest/schemas.py` 의 Pydantic 모델.
+3. **예외를 raise 하지 않는다.** 실패 시 `ToolError(error="설명", field="필드명")` 반환.
+   반환 타입은 `<Model> | ToolError`.
+4. 성공 모델은 `docs/TOOLS.md` 스키마의 **모든 필드** 포함. 없는 값은 `None`.
 5. **계산을 툴 안에서 완료한다.** 파생 지표(F-score, PEG, Z-score, 가중합, 보간 등)를
-   툴이 산출해서 반환. 에이전트에 raw 만 주고 계산 떠넘기지 말 것.
-6. 네트워크 호출은 `data/cache/` 에 TTL 캐시 (`CACHE_TTL_HOURS`, 기본 24). 캐시
-   히트 시 네트워크 미호출. `requests-cache` 또는 수동.
-7. `as_of` (YYYY-MM-DD) 필드 포함. 발표 지연 있는 데이터는 `stale_fields: [...]`.
+   툴이 산출. 에이전트/파이프라인에 raw 만 주고 계산 떠넘기지 말 것.
+6. 네트워크 호출은 `aegisvest/tools/_io.py` 의 캐시 헬퍼 경유
+   (`cached_json` / `cached`). 캐시 히트 시 네트워크 미호출. TTL `CACHE_TTL_HOURS`.
+7. `as_of` (YYYY-MM-DD) 필드 포함. 발표 지연 있는 데이터는 `stale_fields: list[str]`.
 8. 결정론적. 같은 입력 → 같은 출력. 난수·시각 의존 금지 (as_of 제외).
-9. 소스 폴백 순서는 config 또는 상수로 (예: yfinance → FMP).
+9. 소스 폴백 순서는 상수/config 로 (예: yfinance → FMP). API 키 없으면 `ToolError`.
 
 ## 스캐폴딩 순서
 
-1. `aegisvest/schemas.py` 에 입력·출력 Pydantic 모델 추가 (출력은 `docs/TOOLS.md` 기준).
-2. `aegisvest/tools/<name>.py` 작성.
-3. `aegisvest/tools/__init__.py` 에 등록.
-4. `tests/test_tools/test_<name>.py` — TEST_GUIDE 시나리오 1:
+1. `aegisvest/schemas.py` 에 출력 Pydantic 모델 추가 (`docs/TOOLS.md` 기준).
+2. `aegisvest/tools/<name>.py` 작성 (순수 함수). **`__init__.py` 에 재export 하지 말 것**
+   (모듈명 = 함수명이면 서브모듈 shadowing). 호출: `from aegisvest.tools.<name> import <name>`.
+3. 네트워크 호출은 `aegisvest/tools/_io.py` (`cached_json`/`cached_text`/`cached`) 경유.
+   yfinance 이력은 `aegisvest/tools/_prices.py` 의 `history()`.
+4. `tests/test_tools/test_<name>.py` — TEST_GUIDE 시나리오 1
+   (테스트는 `from aegisvest.tools import <name> as mod` 로 모듈을 얻어 monkeypatch):
    - 정상 입력 → 모든 키·타입 확인
    - 잘못된 ticker (`"ZZZZ"`) → error dict, 예외 없음
    - 네트워크 차단(monkeypatch) → error dict, 프로세스 생존

@@ -14,9 +14,11 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-`3a-2 데이터 툴` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
+`3a-3 레짐 엔진` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 는 `[agents]` extra (3a-9까지 미설치). `docker` 는 이 개발환경에 없음.
+개발 API 키: FRED/FMP/DeepSeek 없음, Mattermost 웹훅만 있음. FRED/FMP 경로는 mock 테스트.
+툴 호출: `from aegisvest.tools.<name> import <name>` (패키지 재export 안 함).
 
 ## 빌드 / 테스트
 ```bash

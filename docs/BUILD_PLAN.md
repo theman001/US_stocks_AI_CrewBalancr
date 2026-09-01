@@ -7,7 +7,7 @@
 ## Phase 3a — 결정론 코어 + 최소 조직
 
 - [x] **3a-1 스캐폴딩** — pyproject.toml, config.py, schemas.py(primitives), .env.example, Dockerfile, docker-compose.yml, .python-version(3.12), 디렉토리, tests/test_scaffolding.py — `uv sync`/ruff/mypy/pytest 통과 (docker build 는 ARM/OMV 측에서 검증). 커밋 `build/3a-1-scaffolding`
-- [ ] **3a-2 데이터 툴** — market_data, fundamentals, macro_data, news + 캐시 — 시나리오 1
+- [x] **3a-2 데이터 툴** — market_data, fundamentals, macro_data, news + `_io`(캐시)/`_prices`/`indicators`. 순수 함수 + Pydantic 반환 (BaseTool 래퍼는 3a-9). 36 tests, 라이브 스모크 OK. 검토: [reviews/3a-2.md](reviews/3a-2.md) (3 rounds, 8 findings). ⚠️ **후속**: FMP 레이트리밋(3a-5), `_REGIONAL_FED` series id 라이브 검증, `pct_above_200dma`/`pe_5y_median`/F-score/Z-score/배당 연속증배 등 파생지표는 3a-5.
 - [ ] **3a-3 레짐 엔진** — regime.py + config/regime_rules.yaml — 시나리오 2 (필수)
 - [ ] **3a-4 감시견** — watchdog.py (위기 체크 + 매크로 점수 누적 + regime_history.json) — 독립 실행
 - [ ] **3a-5 스크리너 + 스코어링** — screener, scoring + config/filters/*, config/scoring/* — 시나리오 3
