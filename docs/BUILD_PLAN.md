@@ -16,7 +16,7 @@
 - [x] **3a-8 pipeline.py** — `pipeline.py`(`run_pipeline`: macro+breadth→regime→배분→스크린×3→스코어×3→`cash_flow_rebalance`→`size_positions`→`check_constraints`→`_build_orders`) + `tools/portfolio_math.py`(`size_positions`: 저/중 균등·고위험 ATR 역가중·밴드 클램프·스필·섹터캡) + config `sizing:` 블록. 11 tests. 검토: [reviews/3a-8.md](reviews/3a-8.md) (3 rounds, 5 findings). 라이브: BULL, 결정성 확인, constraints PASS. ⚠️ 초기 배분은 `max_change_per_rebal` 로 수 주 램프업. 3a-10 main.py 가 regime_history/crisis_state 주입.
 - [x] **3a-9 에이전트 3 + 일기 훅** — `llm.py`(DeepSeek 팩토리) + `agents/crew.py`(① Macro Strategist → ②③④ 통합 Analyst → ⑧ CIO, Process.sequential) + `agents/guardrails.py`(`no_fabricated_numbers`) + `diary/{schema,logger}.py` + `config/{agents,tasks}.yaml`. CIO 는 HOLD 권한(주문 불변, 실행만 스킵). 16 tests(mock LLM). 검토: [reviews/3a-9.md](reviews/3a-9.md) (3 rounds, 6 findings). ⚠️ 실 DeepSeek 은 계정 잔액 부족으로 미검증 — `pytest -m llm`. crewai 1.15 설치됨.
 - [x] **3a-10 리포트 + main** — `main.py`(`run`: 적금 납입→run_pipeline→run_crew→CIO APPROVED 면 체결·HOLD 면 스킵→mark-to-market→리포트+알림) + `report.py`(주간 markdown / `performance` CLI) + `tools/fx.py`(USD/KRW) + 감시견 일일 NAV 평가·위기→main 트리거. 15 tests. 검토: [reviews/3a-10.md](reviews/3a-10.md) (3 rounds, 6 findings — 쿨다운 매수 제거, crisis_flag 소유권, 쿨다운 유지 등). 라이브: BULL, 10종목 체결, 크루 실패 흡수, report.md 저장.
-- [ ] **3a-11 backtest.py** — 3a-2~8을 과거 데이터로 루프 — Gate A
+- [~] **3a-11 backtest.py** — **보류** (사용자 결정 2026-09-01). yfinance 는 point-in-time 펀더멘털 미지원 → 프로토타입 백테스트는 "대략적 감"만 가능. 진짜 Gate A 검증은 Sharadar 구독 시 일회성 수행 (phase-2 §8.2). 그때 `run_pipeline` 의 결정론 툴(`macro_data`/`market_data`/`fundamentals`/`screen`/`score_category`)에 as-of 파라미터 스레딩 + 주간 루프 구축.
 
 ## Phase 3b — 조직 완편
 
