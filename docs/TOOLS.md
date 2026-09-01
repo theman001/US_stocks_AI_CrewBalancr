@@ -93,22 +93,20 @@ Output: RegimeResult {
 감시견(3a-4)이 매일 호출하고 `total_score` 를 history 에 append (단 `low_confidence` 인 날 제외).
 보간 앵커는 AllocationTableTool(§5) 소관 — 레짐 계산기엔 없음.
 
-## 5. AllocationTableTool
+## 5. AllocationTableTool  → `allocation_targets(score_smooth, nav_usd=0, *, crisis=False, mode="paper") -> AllocationTargets | ToolError`
 ```
-Input:  score_smooth: float, nav_usd: float
-Output: {
-  "equity_sleeve_pct": float, "cash_pct": float,
-  "category_targets_sleeve": {"low": float, "mid": float, "high": float},   # 슬리브 100 기준
-  "category_targets_total": {"low": float, "mid": float, "high": float},    # 전체 포트 기준
-  "max_positions": {"low": int, "mid": int, "high": int},                   # nav_tiers
-  "guardrails": {"high_abs_cap": 0.20, "single_name_cap": 0.08,
-                 "sector_cap": 0.30, "cash_floor": 0.03,
-                 "rebal_band_abs_pp": 4.0, "rebal_band_rel": 0.25,
-                 "max_change_per_rebal_pp": 10.0, "cooldown_trading_days": 10},
-  "interp_anchors": [float, float]
+Output: AllocationTargets {
+  score_smooth, crisis, equity_sleeve_pct, cash_pct,
+  category_targets_sleeve: {low, mid, high},   # 슬리브 100 기준 소수
+  category_targets_total:  {low, mid, high},   # 전체 포트 기준 소수
+  max_positions: {low, mid, high},             # mode=paper → 20/15/15, live → nav_tiers
+  interp_anchors: [int, int],                  # 보간에 쓴 상·하 정수 앵커
+  guardrails: {...}                            # config/allocation.yaml guardrails
 }
 ```
-`config/allocation.yaml` (보간 앵커, nav_tiers, 가드레일).
+`config/allocation.yaml` (score→[low,mid,high,sleeve,cash] 앵커, nav_tiers, guardrails).
+앵커 사이 선형 보간. `crisis=True` → -12 앵커 스냅. 고위험 절대 상한 20% 강제.
+근거: report/phase-2 §2.2.
 
 ## 6. ScreenerTool  → `screen(category, universe="combined", limit=None) -> ScreenResult | ToolError`
 ```
@@ -136,30 +134,30 @@ rank 정규화 → direction 적용 → component 평균 → weight 가중합 ×
 
 ### 7.2 get_universe  → `get_universe(name="combined") -> list[str]`
 `config/universe/{sp500,nasdaq100}.txt` 정적 명단 (FMP 구성종목 엔드포인트 프리미엄).
-`theme_strength_overrides` 는 Thematic Analyst 피드백 (HIGH 한정, 제한 범위).
 
-## 8. CashFlowRebalancer
+## 8. CashFlowRebalancer  → `cash_flow_rebalance(targets_total, current_category_usd, cash_usd, pending_contribution_usd=0, cooldown_state=None, *, crisis=False) -> RebalancePlan | ToolError`
 ```
-Input:  targets_total: dict, current_positions: dict, cash_usd: float,
-        pending_contribution_usd: float, cooldown_state: dict, guardrails: dict
-Output: {
-  "new_cash_deployable_usd": float,
-  "buys_from_new_cash": [{"category": str, "amount_usd": float}],
-  "sell_needed": bool,
-  "sell_orders": [{"category": str, "amount_usd": float}] | [],
-  "cooldown_blocked": [str],                             # 조정 못 한 카테고리
-  "post_action_weights": {"low": float, "mid": float, "high": float, "cash": float}
+Output: RebalancePlan {
+  new_cash_deployable_usd,
+  buys_from_new_cash: [RebalanceOrder{category, amount_usd}],
+  sell_needed: bool, sell_orders: [RebalanceOrder],
+  cooldown_blocked: [str],                       # 쿨다운으로 조정 못 한 카테고리
+  post_action_weights: {low, mid, high, cash}
 }
 ```
-report/phase-2 §3.3 ① 규칙. 신규 현금 우선 매수, 밴드 밖일 때만 매도, 쿨다운.
+report/phase-2 §3.3 ①: (1) 가용 현금(입금 + 현금-하한)으로 부족 카테고리 매수 (상대
+부족률 큰 순) → (2) 그래도 밴드 밖(±4%p / ±25%)인 과대 카테고리 매도. 쿨다운 10거래일
+(CRISIS 예외), 1회 변동 상한 10%p. `current_category_usd`: 카테고리별 보유 평가액(USD).
 
-## 9. ConstraintChecker
+## 9. ConstraintChecker  → `check_constraints(draft: DraftPortfolio) -> ConstraintResult`
 ```
-Input:  draft_portfolio: dict
-Output: {"verdict": "PASS"|"FAIL", "violations": [{"rule": str, "detail": str, "value": float}]}
+DraftPortfolio { category_weights: {low, mid, high, cash}, positions: [Position{ticker,
+  category, weight, sector}], prior_category_weights: {...} (선택) }
+ConstraintResult { verdict: "PASS"|"FAIL", violations: [{rule, detail, value}] }
 ```
-모든 하드 가드레일 검증 (고위험 20%, 단일종목 8%, 섹터 30%, 현금 하한, 밴드,
-1회 변동 상한). ⑦ Risk Officer 단계 강제 실행.
+하드 가드레일: high_abs_cap(20%), single_name_cap(8%), sector_cap(30%), cash_floor(3%),
+weights_sum(≈1), max_change_per_rebal(prior 있을 때 10%p). ⑦ Risk Officer 강제 실행.
+밴드는 리밸런싱 로직(§8) 소관 — 여기선 검증 안 함.
 
 ## 10. PortfolioMathTool / PositionSizer
 - **PortfolioMathTool**: 가중평균, 노출 집계, 기여도, 주문 수량 산출 — 범용 산술.

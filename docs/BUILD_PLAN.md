@@ -11,7 +11,7 @@
 - [x] **3a-3 레짐 엔진** — `tools/regime.py` (`regime_score`) + `config/regime_rules.yaml` + `rules.py`(Pydantic 로더). 6축 채점·정규화·5일 EMA·CRISIS 래치·`low_confidence` 강등. 26 regime tests (경계값·결정성·CRISIS·EMA). 검토: [reviews/3a-3.md](reviews/3a-3.md) (3 rounds, 3 findings). ⚠️ 3a-4: 감시견이 `low_confidence` 아닌 날만 history append + `crisis_state` persist.
 - [x] **3a-4 감시견** — `watchdog.py` (`run`/`main`) + `state.py`(JSON persistence) + `notify.py`(Mattermost). 매일 macro_data→regime_score, low_confidence 아닌 날만 history append, crisis_state persist, CRISIS→flag+알림. VIX 1일 +50% 위기조건 regime._crisis 로 통합. 14 tests. 검토: [reviews/3a-4.md](reviews/3a-4.md) (2 rounds, 2 findings). ⚠️ 3a-10: main.py 가 crisis_flag.json 읽어 크루 즉시 실행.
 - [x] **3a-5 스크리너 + 스코어링** — `screener.py` / `scoring.py` / `_screen.py` / `_derived.py` / `universe.py` / `breadth.py` + config/{filters,scoring,universe}/*. **FMP→yfinance 전면 전환** (무료 티어 종목 제한). 101 tests. 검토: [reviews/3a-5.md](reviews/3a-5.md) (2 rounds). ✅ phase-1 필터 재보정 승인됨 (2026-09).
-- [ ] **3a-6 배분 + 리밸런싱** — allocation(보간), rebalance(현금흐름/밴드/쿨다운), constraints — 시나리오 4·5 (4 필수)
+- [x] **3a-6 배분 + 리밸런싱** — `allocation.py`(슬라이드 보간·CRISIS 스냅·nav_tier) / `rebalance.py`(현금흐름·밴드·쿨다운·CRISIS 예외) / `constraints.py`(하드 가드레일) + `config/allocation.yaml`. 25 tests. 검토: [reviews/3a-6.md](reviews/3a-6.md) (2 rounds). 라이브: score 0 → phase-2 §2.2 예시와 정확 일치.
 - [ ] **3a-7 PaperBroker** — broker/paper, broker/benchmarks, broker/shadow — equity curve 생성
 - [ ] **3a-8 pipeline.py** — run_pipeline() 결정론 전체 조립 — 시나리오 6 일부
 - [ ] **3a-9 에이전트 3 + 일기 훅** — llm.py, agents/(Macro Strategist / 통합 Analyst / CIO), no_fabricated_numbers, task_callback Mattermost, diary/schema.py + diary/logger.py — 시나리오 7 (필수)

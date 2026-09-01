@@ -213,6 +213,69 @@ class ScoringResult(BaseModel):
     as_of: str
 
 
+# ─────────────────────── 배분·리밸런싱 (3a-6) ───────────────────────
+
+
+class AllocationTargets(BaseModel):
+    """AllocationTableTool 출력. docs/TOOLS.md §5."""
+
+    score_smooth: float
+    crisis: bool
+    equity_sleeve_pct: float = Field(description="주식 슬리브 비중 (소수)")
+    cash_pct: float
+    category_targets_sleeve: dict[str, float] = Field(description="슬리브 100 기준 소수")
+    category_targets_total: dict[str, float] = Field(
+        description="전체 포트 기준 소수 (low/mid/high)"
+    )
+    max_positions: dict[str, int]
+    interp_anchors: list[int] = Field(description="보간에 쓴 상·하 정수 앵커")
+    guardrails: dict[str, float]
+
+
+class Position(BaseModel):
+    ticker: str
+    category: str  # LOW | MID | HIGH
+    weight: float = Field(description="전체 포트 대비 소수")
+    sector: str | None = None
+
+
+class DraftPortfolio(BaseModel):
+    """리밸런싱·제약 검증 입력. category_weights 는 low/mid/high/cash."""
+
+    category_weights: dict[str, float]
+    positions: list[Position] = Field(default_factory=list)
+    prior_category_weights: dict[str, float] = Field(default_factory=dict)
+
+
+class RebalanceOrder(BaseModel):
+    category: str
+    amount_usd: float
+
+
+class RebalancePlan(BaseModel):
+    """CashFlowRebalancer 출력. docs/TOOLS.md §8."""
+
+    new_cash_deployable_usd: float
+    buys_from_new_cash: list[RebalanceOrder]
+    sell_needed: bool
+    sell_orders: list[RebalanceOrder]
+    cooldown_blocked: list[str]
+    post_action_weights: dict[str, float]
+
+
+class ConstraintViolation(BaseModel):
+    rule: str
+    detail: str
+    value: float
+
+
+class ConstraintResult(BaseModel):
+    """ConstraintChecker 출력. docs/TOOLS.md §9."""
+
+    verdict: str = Field(description="PASS | FAIL")
+    violations: list[ConstraintViolation]
+
+
 # ─────────────────────── 레짐 엔진 (3a-3) ───────────────────────
 
 

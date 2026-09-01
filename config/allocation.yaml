@@ -1,0 +1,30 @@
+# 배분·리밸런싱 파라미터 — 근거: report/phase-2 §2, §3.3 / phase-3 §8
+#
+# 보간 앵커: score_smooth ∈ [-12, +12] → 카테고리 % (주식 슬리브 100 기준) + 슬리브/현금.
+# 앵커 사이 선형 보간. CRISIS 는 -12 행으로 스냅.
+anchors:
+  # score: [low, mid, high, sleeve, cash]  (전부 퍼센트)
+  -12: [85, 15, 0, 50, 50]
+  -8: [78, 19, 3, 60, 40]
+  -4: [68, 26, 6, 72, 28]
+  0: [55, 32, 13, 85, 15]
+  4: [48, 36, 16, 90, 10]
+  8: [43, 39, 18, 94, 6]
+  12: [40, 40, 20, 95, 5]
+
+guardrails:
+  high_abs_cap: 0.20 # 고위험 전체 포트 절대 상한
+  single_name_cap: 0.08 # 단일 종목
+  sector_cap: 0.30 # 단일 섹터
+  cash_floor: 0.03 # 강세장에도 현금 하한
+  rebal_band_abs_pp: 4.0 # 카테고리 목표 대비 ±4%p
+  rebal_band_rel: 0.25 # 또는 ±25% 상대
+  max_change_per_rebal_pp: 10.0 # 1회 리밸런싱당 카테고리 변동 상한
+  cooldown_trading_days: 10 # 동일 카테고리 조정 간격 (CRISIS 예외)
+
+# 모의투자: 소수점 30종목 (전략 원형). 실제: NAV 티어 확대.
+paper_max_positions: { low: 20, mid: 15, high: 15 }
+nav_tiers:
+  - { below_usd: 10000, max_positions: { low: 5, mid: 4, high: 3 } }
+  - { below_usd: 25000, max_positions: { low: 8, mid: 6, high: 5 } }
+  - { below_usd: 100000000000, max_positions: { low: 20, mid: 15, high: 15 } }

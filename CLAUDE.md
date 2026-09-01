@@ -14,7 +14,7 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-`3a-6 배분 + 리밸런싱` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
+`3a-7 PaperBroker` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 는 `[agents]` extra (3a-9까지 미설치). `docker` 는 이 개발환경에 없음.
 펀더멘털·뉴스·유니버스는 yfinance/RSS/정적파일 (FMP 무료 티어 제한). FRED 키 검증됨.

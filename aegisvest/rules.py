@@ -145,3 +145,34 @@ def category_filters(category: str) -> CategoryFilters:
 @lru_cache(maxsize=8)
 def category_scoring(category: str) -> CategoryScoring:
     return CategoryScoring.model_validate(_load(f"scoring/{category.lower()}.yaml"))
+
+
+# ─────────────────────── 배분·리밸런싱 (3a-6) ───────────────────────
+
+
+class Guardrails(BaseModel):
+    high_abs_cap: float
+    single_name_cap: float
+    sector_cap: float
+    cash_floor: float
+    rebal_band_abs_pp: float
+    rebal_band_rel: float
+    max_change_per_rebal_pp: float
+    cooldown_trading_days: int
+
+
+class NavTier(BaseModel):
+    below_usd: float
+    max_positions: dict[str, int]
+
+
+class AllocationRules(BaseModel):
+    anchors: dict[int, list[float]]  # score → [low, mid, high, sleeve, cash] (퍼센트)
+    guardrails: Guardrails
+    paper_max_positions: dict[str, int]
+    nav_tiers: list[NavTier]
+
+
+@lru_cache(maxsize=1)
+def allocation_rules() -> AllocationRules:
+    return AllocationRules.model_validate(_load("allocation.yaml"))
