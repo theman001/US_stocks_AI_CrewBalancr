@@ -67,6 +67,7 @@ class Label(BaseModel):
 
 class Crisis(BaseModel):
     vix_max: float
+    vix_1d_spike_pct: float
     hy_oas_max_bp: float
     spx_below_200sma_frac: float
     exit_score_smooth_min: float

@@ -148,6 +148,8 @@ def _crisis(
     reasons: list[str] = []
     if m.vix is not None and m.vix > c.vix_max:
         reasons.append(f"VIX {m.vix:.1f} > {c.vix_max}")
+    if m.vix_1d_change_pct is not None and m.vix_1d_change_pct > c.vix_1d_spike_pct:
+        reasons.append(f"VIX 1일 {m.vix_1d_change_pct:+.0%} 급등")
     if m.hy_oas_bp is not None and m.hy_oas_bp > c.hy_oas_max_bp:
         reasons.append(f"HY OAS {m.hy_oas_bp:.0f}bp > {c.hy_oas_max_bp:.0f}")
     if (

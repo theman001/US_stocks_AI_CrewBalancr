@@ -9,7 +9,7 @@
 - [x] **3a-1 스캐폴딩** — pyproject.toml, config.py, schemas.py(primitives), .env.example, Dockerfile, docker-compose.yml, .python-version(3.12), 디렉토리, tests/test_scaffolding.py — `uv sync`/ruff/mypy/pytest 통과 (docker build 는 ARM/OMV 측에서 검증). 커밋 `build/3a-1-scaffolding`
 - [x] **3a-2 데이터 툴** — market_data, fundamentals, macro_data, news + `_io`(캐시)/`_prices`/`indicators`. 순수 함수 + Pydantic 반환 (BaseTool 래퍼는 3a-9). 36 tests, 라이브 스모크 OK. 검토: [reviews/3a-2.md](reviews/3a-2.md) (3 rounds, 8 findings). ⚠️ **후속**: FMP 레이트리밋(3a-5), `_REGIONAL_FED` series id 라이브 검증, `pct_above_200dma`/`pe_5y_median`/F-score/Z-score/배당 연속증배 등 파생지표는 3a-5.
 - [x] **3a-3 레짐 엔진** — `tools/regime.py` (`regime_score`) + `config/regime_rules.yaml` + `rules.py`(Pydantic 로더). 6축 채점·정규화·5일 EMA·CRISIS 래치·`low_confidence` 강등. 26 regime tests (경계값·결정성·CRISIS·EMA). 검토: [reviews/3a-3.md](reviews/3a-3.md) (3 rounds, 3 findings). ⚠️ 3a-4: 감시견이 `low_confidence` 아닌 날만 history append + `crisis_state` persist.
-- [ ] **3a-4 감시견** — watchdog.py (위기 체크 + 매크로 점수 누적 + regime_history.json) — 독립 실행
+- [x] **3a-4 감시견** — `watchdog.py` (`run`/`main`) + `state.py`(JSON persistence) + `notify.py`(Mattermost). 매일 macro_data→regime_score, low_confidence 아닌 날만 history append, crisis_state persist, CRISIS→flag+알림. VIX 1일 +50% 위기조건 regime._crisis 로 통합. 14 tests. 검토: [reviews/3a-4.md](reviews/3a-4.md) (2 rounds, 2 findings). ⚠️ 3a-10: main.py 가 crisis_flag.json 읽어 크루 즉시 실행.
 - [ ] **3a-5 스크리너 + 스코어링** — screener, scoring + config/filters/*, config/scoring/* — 시나리오 3
 - [ ] **3a-6 배분 + 리밸런싱** — allocation(보간), rebalance(현금흐름/밴드/쿨다운), constraints — 시나리오 4·5 (4 필수)
 - [ ] **3a-7 PaperBroker** — broker/paper, broker/benchmarks, broker/shadow — equity curve 생성

@@ -183,6 +183,15 @@ class CrisisState(BaseModel):
     triggered_date: str | None = None  # 마지막으로 CRISIS 조건이 충족된 날 (YYYY-MM-DD)
 
 
+class CrisisFlag(BaseModel):
+    """state/crisis_flag.json — 감시견이 쓰고 main.py(3a-10)가 읽어 크루를 즉시 실행."""
+
+    active: bool
+    reason: str | None = None
+    detected_at: str = ""  # YYYY-MM-DD
+    cleared_at: str = ""
+
+
 class RegimeResult(BaseModel):
     """RegimeScoreCalculator 출력. LLM 관여 0. docs/TOOLS.md §4."""
 

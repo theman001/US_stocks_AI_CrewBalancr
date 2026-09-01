@@ -212,6 +212,15 @@ def test_crisis_hy_oas_override() -> None:
     assert r.regime is Regime.CRISIS
 
 
+def test_crisis_vix_1d_spike_override() -> None:
+    r = regime_score(macro(vix=22.0, vix3m=23.0, vix_1d_change_pct=0.60))  # +60% > 50%
+    assert r.regime is Regime.CRISIS
+    assert "급등" in (r.crisis_reason or "")
+    # 경계: 정확히 50% 는 아님
+    r2 = regime_score(macro(vix=22.0, vix3m=23.0, vix_1d_change_pct=0.50))
+    assert r2.crisis_active is False
+
+
 def test_crisis_spx_drawdown_override() -> None:
     r = regime_score(macro(spx_last=85.0, spx_sma_200=100.0))  # -15%
     assert r.regime is Regime.CRISIS

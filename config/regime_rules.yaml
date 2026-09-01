@@ -50,8 +50,9 @@ label:
   bear_max: -5 # total_score <= -5 -> BEAR ; 그 사이는 NEUTRAL
 
 crisis:
-  # raw 값 하나라도 참이면 CRISIS 강제 (스무딩 무시)
+  # raw 값 하나라도 참이면 CRISIS 강제 (스무딩 무시). phase-2 §3.2
   vix_max: 35.0
+  vix_1d_spike_pct: 0.50 # VIX 1일 변화율 > +50%
   hy_oas_max_bp: 700.0
   spx_below_200sma_frac: 0.10 # 종가 < 200SMA * (1 - 0.10)
   # 해제: score_smooth >= exit_score_smooth_min AND 마지막 트리거 후 exit_trading_days 경과
