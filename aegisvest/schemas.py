@@ -528,6 +528,27 @@ class ResearchView(BaseModel):
     notes: str = ""
 
 
+class PMDraft(BaseModel):
+    """⑥ Portfolio Manager 출력 — 하우스뷰 틸트 반영 초안. report/phase-3 §3 ⑥.
+
+    LLM 이 비중을 제안하나 `agents.pm._clamp_pm` 이 하드 한계로 클램프:
+    카테고리 ±3%p, 종목은 스코어 상위 풀(max_positions x1.5) 내, excluded_tickers 강제 제외,
+    신규 편입 불가, 티어 밴드·단일종목·고위험캡·현금하한 불가침 (사용자 결정 2026-09-01).
+    """
+
+    category_weights: dict[str, float] = Field(description="low/mid/high/cash 제안 비중 (소수)")
+    positions: list[Position] = Field(default_factory=list)
+    tilt_rationale: str = ""
+
+
+class RiskReview(BaseModel):
+    """⑦ Risk Officer 출력. report/phase-3 §3 ⑦."""
+
+    verdict: str = Field(description="APPROVED | CONDITIONAL | REJECTED")
+    conditions: list[str] = Field(default_factory=list)
+    concerns: list[str] = Field(default_factory=list)
+
+
 class CIODecision(BaseModel):
     """⑧ CIO 출력. 승인 또는 보류만 — 주문 수량·비중 불변. report/phase-3 §3 ⑧ + 사용자 결정."""
 
@@ -538,7 +559,11 @@ class CIODecision(BaseModel):
 
 
 class CrewOutcome(BaseModel):
-    """run_crew() 결과. 3b-1: ① + ②③④(async) → ⑤ → ⑧. 결정론 주문 불변 (CIO HOLD 만 실행 스킵)."""
+    """run_organization() 결과. 3b-2: ① + ②③④ → ⑤ → [⑥ PM ↔ ⑦ Risk (반려 1회)] → ⑧ CIO.
+
+    `org_orders` = PM 틸트 반영 주문 (클램프 후). `rebalance_held` = Risk 2회 REJECTED 또는
+    CIO HOLD → 이번 주 매매 스킵. 결정론 코어(run_pipeline)는 그대로 (섀도 A/B 는 3b-3).
+    """
 
     run_id: str
     macro_brief: MacroBrief
@@ -546,7 +571,12 @@ class CrewOutcome(BaseModel):
     thematic_notes: ThematicNotes
     market_narrative: MarketNarrative
     research_view: ResearchView
+    pm_draft: DraftPortfolio | None = None
+    risk_review: RiskReview | None = None
+    risk_rounds: int = 0
     cio: CIODecision
+    org_orders: list[Order] = Field(default_factory=list)
+    rebalance_held: bool = False
     diary_ids: list[str] = Field(default_factory=list)
     llm_used: bool = True
 

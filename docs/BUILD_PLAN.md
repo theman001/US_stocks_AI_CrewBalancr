@@ -21,7 +21,7 @@
 ## Phase 3b — 조직 완편
 
 - [x] **3b-1 애널리스트 분할** — 통합 Analyst → ② Fundamental / ③ Thematic / ④ News 분리 + ⑤ Research Director. `agents/tools.py`(crewai 툴 래퍼 3종), `crew.py` 재작성 (① + ②③④ async → ⑤ → ⑧), `guardrails.hedge_only`(툴 쓰는 에이전트용). schemas: FundamentalNotes/ThematicNotes/MarketNarrative/ResearchView. diary claim_type +catalyst/event_risk/sleeve_stance. 22 tests. 검토: [reviews/3b-1.md](reviews/3b-1.md) (3 rounds, 2 findings). 실 DeepSeek 미검증 (잔액).
-- [ ] **3b-2 의사결정 계층** — ⑥ Portfolio Manager + ⑦ Risk Officer + 반려 루프 (crewai.Flow)
+- [x] **3b-2 의사결정 계층** — `agents/organization.py`(`run_organization`: 애널리스트 크루 → `_OrgFlow` crewai.Flow @router 반려 1회 → CIO) + `agents/pm.py`(`clamp_pm_draft` 하드 클램프: ±3%p·풀·제외·밴드·캡). PM 이 draft 직접 제안(사용자 결정), 파이썬 클램프. `pipeline.build_orders`/`category_usd` 공개. main 이 org_orders 체결. 12 tests. 검토: [reviews/3b-2.md](reviews/3b-2.md) (2 rounds, 4 findings — 틸트 기준·예산 초과·카테고리 제거·빈 주문). 실 DeepSeek 미검증.
 - [ ] **3b-3 섀도 틸트 측정** — 조직 on/off NAV 병행 리포트
 
 ## Phase 4 — 판단 일기 RAG (모의투자 ~3개월 데이터 후)

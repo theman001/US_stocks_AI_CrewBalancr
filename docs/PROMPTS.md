@@ -22,16 +22,17 @@
 5. "약", "대략", "추정" 으로 수치를 말하면 실패다.
 ```
 
-## 현재 구현 (3b-1): 6 에이전트
-`config/agents.yaml` — `macro_strategist`(①) / `fundamental_analyst`(②) /
-`thematic_analyst`(③) / `news_analyst`(④) / `research_director`(⑤) / `cio`(⑧).
-`config/tasks.yaml` — `macro_brief` + `fundamental_notes` + `thematic_notes` +
-`market_narrative` (async 병렬) → `research_view` → `cio_decision` (Process.sequential).
-툴: ① news_scraper / ② news_scraper+fundamentals / ③ news_scraper+technical_indicators
-(`agents/tools.py`). guardrail: 툴 쓰는 ①②③ 은 `hedge_only`, ④⑤⑧ 은 전체 숫자 대조.
-CIO 는 `APPROVED`/`HOLD` (HOLD = 리밸런싱 보류, 주문 불변). 공통 블록은
-`agents/crew.py._ABSOLUTE_RULES` 가 `{absolute_rules}` 자리에 주입.
-⑥PM·⑦Risk 는 3b-2, ⑨Reviewer 는 Phase 4.
+## 현재 구현 (3b-2): 8 에이전트
+`config/agents.yaml` — ①macro_strategist ②fundamental_analyst ③thematic_analyst
+④news_analyst ⑤research_director ⑥portfolio_manager ⑦risk_officer ⑧cio.
+흐름 (`agents/organization.run_organization`): ① + ②③④ (async 병렬) → ⑤ →
+**[⑥ PM → ⑦ Risk] crewai.Flow @router** (REJECTED 면 PM 1회 재시도, 2회차도 REJECTED
+면 `rebalance_held`) → ⑧ CIO.
+툴: ① news / ② news+fundamentals / ③ news+technical (`agents/tools.py`).
+guardrail: 툴/제안비중 산출하는 ①②③⑥ 은 `hedge_only`, ④⑤⑦⑧ 은 전체 숫자 대조.
+⑥ PM 은 DraftPortfolio 를 직접 제안 (사용자 결정) → `agents/pm.clamp_pm_draft` 가
+±3%p·상위풀·제외·티어밴드·캡으로 하드 클램프. 최종 주문 수량은 `pipeline.build_orders`.
+⑧ CIO 는 `APPROVED`/`HOLD`. ⑨ Reviewer 는 Phase 4.
 
 ## 9 에이전트 규격 요약 (목표 조직)
 

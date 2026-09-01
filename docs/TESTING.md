@@ -53,14 +53,17 @@ uv run pytest -x -q
 - CRISIS 매크로 → `allocation.category_targets_total["high"] == 0`, 슬리브 50%
 - PositionSizer: 편입 수 = 예산÷하한, 저/중 균등, 고위험 ATR 역가중, 섹터캡 30% 축소
 
-## 시나리오 6 — 크루 통합 (mock LLM) — `tests/test_agents/test_crew.py`
+## 시나리오 6 — 조직 통합 (mock LLM) — `tests/test_agents/test_{organization,pm}.py`
 - `ScriptedLLM(BaseLLM)` 로 DeepSeek 대체 (response_model 이름으로 canned JSON 라우팅)
-- ① + ②③④ (async) → ⑤ RD → ⑧ CIO → `CrewOutcome` 6종 스키마 통과
+- ① + ②③④ (async) → ⑤ RD → [⑥ PM → ⑦ Risk crewai.Flow] → ⑧ CIO → `CrewOutcome`
 - CIO `HOLD` (CRISIS) → 일기 `cio_override`, 주문 불변
-- ② `exclude_recommended` → 일기 `exclusion` (`enforced: False`)
-- ③ `catalyst` → 일기 `catalyst` (`sleeve:high` 태그), ④ 이벤트 → `event_risk`, ⑤ → `sleeve_stance`
+- ③ `catalyst` → 일기 (`sleeve:high`), ④ 이벤트 → `event_risk`, ⑤ → `sleeve_stance`
+- ⑦ Risk REJECTED → PM 1회 재시도 → 2회차도 REJECTED → `rebalance_held`, `org_orders == []`,
+  일기 `risk_veto`
+- ⑥ PM 틸트 → `allocation_tilt` 일기 (`enforced: True`, shadow_link)
+- `clamp_pm_draft` (test_pm.py): ±3%p·풀 밖 제거·excluded 강제·티어밴드·단일캡·고위험캡·현금하한
 - guardrail `hedge_only`: 툴 수치(ROE 31%) 통과, 헤지("약 20%") 거부
-- 3b-2: ⑦ Risk REJECTED → 반려 루프 1회, ⑥ 틸트 ±3%p 클램프 (미구현)
+- 3b-3: 섀도 A/B 이중 포트폴리오 병행 추적 (미구현)
 
 ## 시나리오 7 — 할루시네이션 가드 (**필수**) — `tests/test_agents/test_guardrails.py`
 - "약 15%" (헤지어+숫자) → `no_fabricated_numbers` reject

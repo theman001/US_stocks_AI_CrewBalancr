@@ -84,26 +84,50 @@ def weekly_report_md(
         lines.append("_체결 없음._")
 
     if crew:
-        lines += ["", "## 조직 노트", ""]
-        mb = crew.macro_brief
-        lines.append(f"**Macro Strategist** ({mb.confidence}): " + "; ".join(mb.risk_scenarios[:3]))
-        lines.append(f"**News & Sentiment**: {crew.market_narrative.weekly_summary}")
-        for e in crew.market_narrative.event_risks:
-            lines.append(f"- 이벤트: {e.event} ({e.affected_sleeve}, {e.severity})")
-        rv = crew.research_view
-        stance = ", ".join(f"{k} {v.stance}" for k, v in rv.sleeve_stance.items())
-        lines.append(f"**Research Director**: 슬리브 스탠스 [{stance}]")
-        if rv.excluded_tickers:
-            lines.append(f"- 제외 권고(비강제): {', '.join(rv.excluded_tickers)}")
-        for r in rv.cross_risks:
-            lines.append(f"- 교차 리스크: {r}")
-        lines.append(f"**CIO** ({crew.cio.verdict}): {crew.cio.ic_memo}")
-        if crew.cio.hold_reason:
-            lines.append(f"- HOLD 사유: {crew.cio.hold_reason}")
+        lines += ["", "## 조직 노트", "", *_crew_notes(pr, crew)]
 
     if pr.notes:
         lines += ["", "## 파이프라인 노트", *[f"- {n}" for n in pr.notes]]
     return "\n".join(lines) + "\n"
+
+
+def _crew_notes(pr: PipelineResult, crew: CrewOutcome) -> list[str]:
+    mb, rv = crew.macro_brief, crew.research_view
+    out = [
+        f"**Macro Strategist** ({mb.confidence}): " + "; ".join(mb.risk_scenarios[:3]),
+        f"**News & Sentiment**: {crew.market_narrative.weekly_summary}",
+        *[
+            f"- 이벤트: {e.event} ({e.affected_sleeve}, {e.severity})"
+            for e in crew.market_narrative.event_risks
+        ],
+        "**Research Director**: 슬리브 스탠스 ["
+        + ", ".join(f"{k} {v.stance}" for k, v in rv.sleeve_stance.items())
+        + "]",
+        *(
+            [f"- 제외 권고(비강제): {', '.join(rv.excluded_tickers)}"]
+            if rv.excluded_tickers
+            else []
+        ),
+        *[f"- 교차 리스크: {r}" for r in rv.cross_risks],
+    ]
+    if crew.pm_draft is not None:
+        det = pr.draft.category_weights
+        tilt = ", ".join(
+            f"{c} {(crew.pm_draft.category_weights.get(c, 0.0) - det.get(c, 0.0)) * 100:+.1f}%p"
+            for c in ("low", "mid", "high")
+        )
+        out.append(f"**Portfolio Manager**: 틸트 [{tilt}] (클램프 후)")
+    if crew.risk_review is not None:
+        rr = crew.risk_review
+        out.append(
+            f"**Risk Officer** ({rr.verdict}, {crew.risk_rounds}R): " + "; ".join(rr.concerns)
+        )
+    out.append(f"**CIO** ({crew.cio.verdict}): {crew.cio.ic_memo}")
+    if crew.rebalance_held:
+        out.append("- ⛔ 이번 주 리밸런싱 보류")
+    if crew.cio.hold_reason:
+        out.append(f"- HOLD 사유: {crew.cio.hold_reason}")
+    return out
 
 
 def mattermost_summary(

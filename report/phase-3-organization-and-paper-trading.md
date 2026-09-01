@@ -192,6 +192,16 @@ Layer 0 파이썬  ──→  ① ② ③ ④  (async 병렬)  ──→  ⑤ Re
 | Layer 2~3 에이전트 툴 없음 | 툴콜 불안정성 노출 최소화 (툴은 ①②③⑨만) |
 | `deepseek-chat`, temp 0.0~0.3, `top_p` 낮게 | 재현성 |
 
+> **⚠️ 3b-2 변경 (사용자 결정 2026-09-01)**: ⑥ PM 은 "선택·승인만" 대신 **DraftPortfolio
+> (카테고리·종목 비중)를 직접 제안**한다. LLM 이 비중 숫자를 내지만 파이썬
+> `agents/pm.clamp_pm_draft` 가 하드 한계로 강제 클램프한다: 카테고리 목표 ±3%p / 종목은
+> 스코어 상위 풀(max_positions×1.5) 내(신규 편입 불가) / `excluded_tickers` 강제 제외 /
+> 티어 밴드·단일종목 8%·고위험 20%·현금 3% 불가침. 최종 주문 수량은 여전히 파이썬
+> (`pipeline.build_orders` = cash_flow_rebalance + 종목 분배). ⑥ 는 hedge_only 가드레일.
+>
+> **반려 루프**: `crewai.Flow` `@router` (⑥ PM → ⑦ Risk → REJECTED 면 PM 1회 재시도,
+> 2회차도 REJECTED 면 `rebalance_held` → 이번 주 매매 스킵). `agents/organization.py`.
+
 ---
 
 ## 6. 상호작용 모니터링 (E)

@@ -21,6 +21,7 @@ from aegisvest.schemas import (
     PaperPortfolio,
     PipelineResult,
     Position,
+    RebalancePlan,
     RegimeHistoryPoint,
     ScoredTicker,
     ScoringResult,
@@ -72,7 +73,7 @@ def _with_breadth(macro: MacroData, universe_tickers: list[str], notes: list[str
     )
 
 
-def _category_usd(pf: PaperPortfolio, prices: dict[str, float]) -> dict[str, float]:
+def category_usd(pf: PaperPortfolio, prices: dict[str, float]) -> dict[str, float]:
     out: dict[str, float] = dict.fromkeys(_CATS, 0.0)
     for t, pos in pf.positions.items():
         if pos.shares <= 0:
@@ -81,6 +82,19 @@ def _category_usd(pf: PaperPortfolio, prices: dict[str, float]) -> dict[str, flo
         if cat in out:
             out[cat] += pos.shares * prices.get(t, pos.avg_cost_usd)
     return out
+
+
+def build_orders(
+    sizing: SizingResult, pf: PaperPortfolio, prices: dict[str, float], plan: RebalancePlan
+) -> list[Order]:
+    """SizingResult + RebalancePlan → 종목 주문. 결정론 파이프라인·조직(3b-2 PM) 공용."""
+    return _build_orders(
+        sizing,
+        pf,
+        prices,
+        {o.category: o.amount_usd for o in plan.buys_from_new_cash},
+        {o.category: o.amount_usd for o in plan.sell_orders},
+    )
 
 
 def _build_orders(
@@ -197,7 +211,7 @@ def run_pipeline(
             scoring[cat] = sc
             scored_lists[cat] = sc.scores
 
-    current_cat_usd = _category_usd(portfolio, held_prices)
+    current_cat_usd = category_usd(portfolio, held_prices)
     plan = cash_flow_rebalance(
         alloc.category_targets_total,
         current_cat_usd,
@@ -235,13 +249,7 @@ def run_pipeline(
     constraints = check_constraints(draft)
 
     order_prices = {**held_prices, **_prices_for([p.ticker for p in sizing.positions])}
-    orders = _build_orders(
-        sizing,
-        portfolio,
-        order_prices,
-        {o.category: o.amount_usd for o in plan.buys_from_new_cash},
-        {o.category: o.amount_usd for o in plan.sell_orders},
-    )
+    orders = build_orders(sizing, portfolio, order_prices, plan)
 
     return PipelineResult(
         as_of=macro.as_of,

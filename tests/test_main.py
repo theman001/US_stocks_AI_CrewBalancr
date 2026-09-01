@@ -6,7 +6,7 @@ import datetime as dt
 
 import pytest
 
-import aegisvest.agents.crew as crew_mod
+import aegisvest.agents.organization as org_mod
 from aegisvest import main, state
 from aegisvest.schemas import (
     CIODecision,
@@ -39,7 +39,9 @@ def _pipeline(**kw: object):
     return pr
 
 
-def _crew(verdict: str = "APPROVED") -> CrewOutcome:
+def _crew(
+    verdict: str = "APPROVED", *, held: bool = False, org_orders: list[Order] | None = None
+) -> CrewOutcome:
     return CrewOutcome(
         run_id="x",
         macro_brief=MacroBrief(regime="BULL", confidence="high"),
@@ -50,6 +52,8 @@ def _crew(verdict: str = "APPROVED") -> CrewOutcome:
         cio=CIODecision(
             verdict=verdict, ic_memo="memo", hold_reason="CRISIS" if verdict == "HOLD" else None
         ),
+        rebalance_held=held,
+        org_orders=org_orders or [],
     )
 
 
@@ -74,8 +78,7 @@ def test_cio_hold_skips_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     main.get_settings.cache_clear()
     monkeypatch.setattr(main, "run_pipeline", _pipeline)
-
-    monkeypatch.setattr(crew_mod, "run_crew", lambda pr, run_id: _crew("HOLD"))
+    monkeypatch.setattr(org_mod, "run_organization", lambda pr, **kw: _crew("HOLD"))
     res = main.run()
     assert res.held is True
     assert res.n_fills == 0

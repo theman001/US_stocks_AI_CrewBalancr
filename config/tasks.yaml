@@ -66,18 +66,47 @@ research_view:
   expected_output: >
     ResearchView JSON: sleeve_stance{low,mid,high:{stance,reason}}, cross_risks[], excluded_tickers[], notes.
 
+pm_draft:
+  agent: portfolio_manager
+  description: >
+    결정론 초안을 하우스뷰에 맞춰 한도 내에서 틸트하라.
+
+    [결정론 초안: 카테고리 목표(%) + 상위 풀 + 종목별 비중(%)] {det_draft_json}
+    [하우스뷰 ResearchView] {research_view_json}
+    [강제 제외 종목] {excluded_json}
+
+    규칙: 카테고리 비중은 목표 ±3%p 이내. 종목은 top_pool 안에서만 (신규 편입 불가).
+    excluded_json 종목은 반드시 제외. 티어 밴드·단일종목 8%·고위험 20%·현금 3% 불가침.
+    슬리브 스탠스가 overweight 면 그 카테고리를 (한도 내) 늘리고 underweight 면 줄인다.
+  expected_output: >
+    PMDraft JSON: category_weights{low,mid,high,cash} (소수), positions[{ticker,category,weight,sector}]
+    (소수 비중), tilt_rationale.
+
+risk_review:
+  agent: risk_officer
+  description: >
+    PM 초안과 제약검증·하우스뷰·이벤트 리스크를 검토하라.
+
+    [PM 초안] 위 컨텍스트 / [결정론 제약검증] {constraints_json}
+    [하우스뷰] {research_view_json} / [초안 배분] {det_draft_json}
+
+    집중도·상관 클러스터·유동성·이벤트 겹침을 평가하고 PM 틸트가 하우스뷰로 정당화되는지 본다.
+    verdict: APPROVED / CONDITIONAL / REJECTED. REJECTED 는 실질 리스크가 있을 때만.
+  expected_output: >
+    RiskReview JSON: verdict(APPROVED|CONDITIONAL|REJECTED), conditions[], concerns[].
+
 cio_decision:
   agent: cio
   description: >
-    위 컨텍스트에 MacroBrief 와 ResearchView 가 있다. 아래는 결정론 산출이다.
+    위 컨텍스트에 MacroBrief·ResearchView·RiskReview 가 있다. 아래는 산출이다.
 
     [초안 포트폴리오] {draft_json}
     [제약 검증] {constraints_json}
     [배분 요약] {allocation_json}
     [레짐] {regime_summary}
 
-    verdict 를 APPROVED 또는 HOLD 로 정하라. 기본 APPROVED. HOLD 는 CRISIS / 하우스뷰의 중대
-    리스크 / 실질적 제약 FAIL 일 때만. HOLD 면 hold_reason 필수. 주문 수량·비중 불변.
+    verdict 를 APPROVED 또는 HOLD 로 정하라. 기본 APPROVED. HOLD 는 CRISIS / 하우스뷰·Risk 의
+    중대 리스크 / 실질적 제약 FAIL 일 때만. HOLD 면 hold_reason 필수. 주문 수량·비중 불변.
     ic_memo 에 근거를 3~5문장.
   expected_output: >
     CIODecision JSON: verdict(APPROVED|HOLD), ic_memo, concerns[], hold_reason(HOLD 시).

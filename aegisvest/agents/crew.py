@@ -18,6 +18,7 @@ import yaml
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
+from aegisvest.agents import quiet_crew_console
 from aegisvest.agents import tools as agent_tools
 from aegisvest.agents.guardrails import no_fabricated_numbers
 from aegisvest.config import CONFIG_DIR
@@ -27,12 +28,13 @@ from aegisvest.llm import get_llm
 from aegisvest.notify import post_agent_note
 from aegisvest.schemas import (
     CIODecision,
-    CrewOutcome,
     FundamentalNotes,
     MacroBrief,
     MarketNarrative,
     PipelineResult,
+    PMDraft,
     ResearchView,
+    RiskReview,
     ThematicNotes,
 )
 
@@ -68,6 +70,8 @@ _TASKS: dict[str, _Spec] = {
     "thematic_notes": _Spec(ThematicNotes, "Thematic Analyst", "🚀", "aegis-research"),
     "market_narrative": _Spec(MarketNarrative, "News & Sentiment", "📰", "aegis-research"),
     "research_view": _Spec(ResearchView, "Research Director", "🧩", "aegis-research"),
+    "pm_draft": _Spec(PMDraft, "Portfolio Manager", "📐", "aegis-decisions"),
+    "risk_review": _Spec(RiskReview, "Risk Officer", "🛡️", "aegis-decisions"),
     "cio_decision": _Spec(CIODecision, "CIO", "⚖️", "aegis-decisions"),
 }
 
@@ -149,6 +153,7 @@ def build_inputs(pr: PipelineResult) -> dict[str, str]:
 
 
 def _agents(llm: Any) -> dict[str, Agent]:
+    quiet_crew_console()
     out: dict[str, Agent] = {}
     for key, d in _cfg("agents.yaml").items():
         out[key] = Agent(
@@ -163,53 +168,87 @@ def _agents(llm: Any) -> dict[str, Agent]:
     return out
 
 
-def run_crew(
-    pr: PipelineResult, *, run_id: str | None = None, llm: Any | None = None
-) -> CrewOutcome:
-    """주간 크루. `llm` 지정 시 전 에이전트 오버라이드 (테스트용 스크립트 LLM)."""
-    run_id = run_id or pr.as_of
-    inputs = build_inputs(pr)
-    agents = _agents(llm)
-    tdefs = _cfg("tasks.yaml")
-    diary_ids: list[str] = []
-    allowed = _num_payload(pr)
-    _tool_agents = {"macro_brief", "fundamental_notes", "thematic_notes"}  # 툴 사용 → hedge_only
+# hedge_only: 툴 반환값 인용(①②③) 또는 클램프될 제안 비중 산출(⑥ PM) → 헤지 표현만 검사
+_HEDGE_ONLY_TASKS = {"macro_brief", "fundamental_notes", "thematic_notes", "pm_draft"}
 
-    def _mk(key: str, context: list[Task], *, is_async: bool = False) -> Task:
-        td = tdefs[key]
-        return Task(
-            description=td["description"],
-            expected_output=td["expected_output"],
-            agent=agents[td["agent"]],
-            context=context,
-            output_pydantic=_TASKS[key].model,
-            guardrail=no_fabricated_numbers(allowed, hedge_only=key in _tool_agents),
-            callback=_callback(key, pr, run_id, diary_ids),
-            async_execution=is_async,
+
+def make_task(
+    key: str,
+    context: list[Task],
+    *,
+    agents: dict[str, Agent],
+    tdefs: dict[str, Any],
+    allowed: dict[str, Any],
+    pr: PipelineResult,
+    run_id: str,
+    diary_ids: list[str],
+    is_async: bool = False,
+    extra_desc: str = "",
+) -> Task:
+    td = tdefs[key]
+    return Task(
+        description=td["description"] + extra_desc,
+        expected_output=td["expected_output"],
+        agent=agents[td["agent"]],
+        context=context,
+        output_pydantic=_TASKS[key].model,
+        guardrail=no_fabricated_numbers(allowed, hedge_only=key in _HEDGE_ONLY_TASKS),
+        callback=_callback(key, pr, run_id, diary_ids),
+        async_execution=is_async,
+    )
+
+
+@dataclass
+class AnalystBundle:
+    macro_brief: MacroBrief
+    fundamental_notes: FundamentalNotes
+    thematic_notes: ThematicNotes
+    market_narrative: MarketNarrative
+    research_view: ResearchView
+
+
+def run_analysts(
+    pr: PipelineResult,
+    *,
+    agents: dict[str, Agent],
+    tdefs: dict[str, Any],
+    allowed: dict[str, Any],
+    run_id: str,
+    diary_ids: list[str],
+    inputs: dict[str, str],
+) -> AnalystBundle:
+    """① Macro + ②③④ (async 병렬) → ⑤ Research Director. Process.sequential."""
+
+    def mk(key: str, ctx: list[Task], *, is_async: bool = False) -> Task:
+        return make_task(
+            key,
+            ctx,
+            agents=agents,
+            tdefs=tdefs,
+            allowed=allowed,
+            pr=pr,
+            run_id=run_id,
+            diary_ids=diary_ids,
+            is_async=is_async,
         )
 
-    t_macro = _mk("macro_brief", [], is_async=True)
-    t_fund = _mk("fundamental_notes", [], is_async=True)
-    t_thematic = _mk("thematic_notes", [], is_async=True)
-    t_news = _mk("market_narrative", [], is_async=True)
-    t_rd = _mk("research_view", [t_macro, t_fund, t_thematic, t_news])
-    t_cio = _mk("cio_decision", [t_macro, t_rd])
-    tasks = [t_macro, t_fund, t_thematic, t_news, t_rd, t_cio]
-
+    t_macro = mk("macro_brief", [], is_async=True)
+    t_fund = mk("fundamental_notes", [], is_async=True)
+    t_thematic = mk("thematic_notes", [], is_async=True)
+    t_news = mk("market_narrative", [], is_async=True)
+    t_rd = mk("research_view", [t_macro, t_fund, t_thematic, t_news])
     Crew(
-        agents=list(agents.values()), tasks=tasks, process=Process.sequential, verbose=False
+        agents=list(agents.values()),
+        tasks=[t_macro, t_fund, t_thematic, t_news, t_rd],
+        process=Process.sequential,
+        verbose=False,
     ).kickoff(inputs=inputs)
-
-    return CrewOutcome(
-        run_id=run_id,
+    return AnalystBundle(
         macro_brief=_out(t_macro, MacroBrief),
         fundamental_notes=_out(t_fund, FundamentalNotes),
         thematic_notes=_out(t_thematic, ThematicNotes),
         market_narrative=_out(t_news, MarketNarrative),
         research_view=_out(t_rd, ResearchView),
-        cio=_out(t_cio, CIODecision),
-        diary_ids=diary_ids,
-        llm_used=llm is None,
     )
 
 
@@ -289,11 +328,18 @@ def _summary(key: str, model: Any) -> str:
             f"스탠스 {{{', '.join(f'{k}:{v.stance}' for k, v in m.sleeve_stance.items())}}}"
             f" · 교차리스크 {len(m.cross_risks)}"
         ),
+        "pm_draft": lambda m: (
+            f"{len(m.positions)}종목 · "
+            + ", ".join(
+                f"{k} {round(v * 100, 1)}%" for k, v in m.category_weights.items() if k != "cash"
+            )
+        ),
+        "risk_review": lambda m: f"{m.verdict} · 우려 {len(m.concerns)}",
         "cio_decision": lambda m: (
             m.verdict + (f" · {m.hold_reason}" if m.verdict == "HOLD" else "")
         ),
     }
-    return fns[key](model)
+    return fns.get(key, lambda _m: key)(model)
 
 
 def _dc_macro(m: Any) -> dict[str, Any]:

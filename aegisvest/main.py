@@ -22,8 +22,8 @@ from aegisvest.schemas import (
     CrewOutcome,
     CrisisState,
     ExecutionResult,
+    Order,
     PaperPortfolio,
-    PipelineResult,
     RegimeHistoryPoint,
     RegimeResult,
     ShadowState,
@@ -39,9 +39,13 @@ _log = logging.getLogger("aegisvest.main")
 _MAX_HISTORY = 40
 
 
-def _bump_cooldown(pf: PaperPortfolio, pr: PipelineResult, held: bool) -> None:
+def _bump_cooldown(pf: PaperPortfolio, executed: list[Order], held: bool) -> None:
     """카테고리별 '마지막 매도 후 경과 거래일'. 주간 실행 ≈ 5거래일. 매도한 카테고리는 0 리셋."""
-    sold = set() if held else {o.category for o in pr.rebalance_plan.sell_orders}
+    sold = (
+        set()
+        if held
+        else {(o.category or "").lower() for o in executed if o.side == "sell" and o.category}
+    )
     pf.cooldown_days = {
         c: 0 if c in sold else min(pf.cooldown_days.get(c, 999) + 5, 999)
         for c in ("low", "mid", "high")
@@ -114,23 +118,35 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     if s.deepseek_api_key:
         try:
             # 지연 import — 키 없으면 crewai(무거움) 를 안 불러온다
-            from aegisvest.agents.crew import run_crew  # noqa: PLC0415
+            from aegisvest.agents.organization import run_organization  # noqa: PLC0415
 
-            crew = run_crew(pr, run_id=run_id)
+            crew = run_organization(
+                pr, portfolio=pf, prices=pr.prices, pending_contribution_usd=0.0, run_id=run_id
+            )
         except Exception:  # 크루 실패가 결정론 파이프라인·모의투자를 막지 않는다
-            _log.exception("크루 실행 실패 — 결정론 결과로 진행")
+            _log.exception("조직 크루 실행 실패 — 결정론 결과로 진행")
     else:
         _log.info("DEEPSEEK_API_KEY 없음 — 크루 스킵, 결정론 주문만")
 
-    held = crew is not None and crew.cio.verdict == "HOLD"
+    held = crew is not None and (crew.rebalance_held or crew.cio.verdict == "HOLD")
+    use_org = crew is not None and not held and crew.cio.verdict == "APPROVED"
+    orders = (
+        crew.org_orders if (use_org and crew) else pr.orders
+    )  # 조직 승인 시 그 결과(빈 리스트여도)
     execution: ExecutionResult | None = None
     if held:
-        _log.warning("CIO HOLD: %s — 매매 스킵", crew.cio.hold_reason if crew else "")
-    elif pr.orders:
-        execution = paper.execute(pf, pr.orders, pr.prices)
-        _log.info("체결 %d건 (스킵 %d)", len(execution.fills), len(execution.skipped))
+        reason = crew.cio.hold_reason or "Risk 2회 REJECTED" if crew else ""
+        _log.warning("리밸런싱 보류: %s — 매매 스킵", reason)
+    elif orders:
+        execution = paper.execute(pf, orders, pr.prices)
+        _log.info(
+            "체결 %d건 (스킵 %d, %s)",
+            len(execution.fills),
+            len(execution.skipped),
+            "조직" if use_org else "결정론",
+        )
 
-    _bump_cooldown(pf, pr, held)
+    _bump_cooldown(pf, orders, held)
     all_prices = {**pr.prices, **_bench_prices()}
     mark_date = latest_close_date(float(s.cache_ttl_hours)) or pr.as_of  # 감시견과 동일 인덱스
     nav = paper.mark_to_market(pf, all_prices, mark_date, fx)
