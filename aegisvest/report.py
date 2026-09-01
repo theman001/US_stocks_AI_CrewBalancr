@@ -87,10 +87,16 @@ def weekly_report_md(
         lines += ["", "## 조직 노트", ""]
         mb = crew.macro_brief
         lines.append(f"**Macro Strategist** ({mb.confidence}): " + "; ".join(mb.risk_scenarios[:3]))
-        av = crew.analyst_view
-        lines.append(f"**통합 Analyst**: {av.weekly_narrative}")
-        if av.excluded_tickers:
-            lines.append(f"- 제외 권고(비강제): {', '.join(av.excluded_tickers)}")
+        lines.append(f"**News & Sentiment**: {crew.market_narrative.weekly_summary}")
+        for e in crew.market_narrative.event_risks:
+            lines.append(f"- 이벤트: {e.event} ({e.affected_sleeve}, {e.severity})")
+        rv = crew.research_view
+        stance = ", ".join(f"{k} {v.stance}" for k, v in rv.sleeve_stance.items())
+        lines.append(f"**Research Director**: 슬리브 스탠스 [{stance}]")
+        if rv.excluded_tickers:
+            lines.append(f"- 제외 권고(비강제): {', '.join(rv.excluded_tickers)}")
+        for r in rv.cross_risks:
+            lines.append(f"- 교차 리스크: {r}")
         lines.append(f"**CIO** ({crew.cio.verdict}): {crew.cio.ic_memo}")
         if crew.cio.hold_reason:
             lines.append(f"- HOLD 사유: {crew.cio.hold_reason}")

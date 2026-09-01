@@ -51,3 +51,13 @@ def test_year_allowed() -> None:
     check = no_fabricated_numbers(_PAYLOAD)
     ok, _ = check(_Out(raw="2026년 4분기 FOMC 이벤트 리스크"))
     assert ok is True
+
+
+def test_hedge_only_allows_tool_numbers_but_catches_hedge() -> None:
+    check = no_fabricated_numbers(_PAYLOAD, hedge_only=True)
+    # 툴이 준 값 (페이로드엔 없지만 fundamentals 툴 반환) — 통과
+    ok, _ = check(_Out(raw="PEG 1.85, ROE 31%로 우량 (fundamentals 툴)"))
+    assert ok is True
+    # 헤지는 여전히 거부
+    bad, _ = check(_Out(raw="대략 20% 성장 예상"))
+    assert bad is False

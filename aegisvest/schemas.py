@@ -462,21 +462,70 @@ class MacroBrief(BaseModel):
     watch_items: list[str] = Field(default_factory=list)
 
 
-class AnalystNote(BaseModel):
+class FundamentalNote(BaseModel):
+    """② Fundamental Analyst — 종목별 재무 코멘트. report/phase-3 §3 ②."""
+
     ticker: str
     thesis_1line: str
-    quality_flags: list[str] = Field(default_factory=list, description="정성 리스크 플래그")
+    quality_flags: list[str] = Field(
+        default_factory=list, description="이익 피크아웃·일회성·소송 등"
+    )
+    valuation_trap: bool = False
     exclude_recommended: bool = False
 
 
-class AnalystView(BaseModel):
-    """②③④ 통합 Analyst 출력 (3b 에서 분할). exclude 는 3a-9 에선 권고만 (주문 불변)."""
+class FundamentalNotes(BaseModel):
+    notes: list[FundamentalNote] = Field(default_factory=list)
 
-    low_mid_notes: list[AnalystNote] = Field(default_factory=list)
-    high_notes: list[AnalystNote] = Field(default_factory=list)
-    weekly_narrative: str = ""
-    event_risks: list[str] = Field(default_factory=list)
+
+class ThematicNote(BaseModel):
+    """③ Thematic/Momentum Analyst — HIGH 종목별 테마·촉매·크라우딩. report/phase-3 §3 ③."""
+
+    ticker: str
+    themes: list[str] = Field(default_factory=list)
+    catalyst: str = ""
+    catalyst_date: str | None = None
+    crowding_flag: bool = False
+    momentum_durability: str = Field(default="med", description="high | med | low")
+    theme_strength_adj: float = Field(
+        default=0.0, description="스코어 테마강도 조정 권고, -0.2~+0.2 (3b-2 PM 이 적용)"
+    )
+    exclude_recommended: bool = False
+
+
+class ThematicNotes(BaseModel):
+    notes: list[ThematicNote] = Field(default_factory=list)
+
+
+class EventRisk(BaseModel):
+    event: str
+    date: str | None = None
+    affected_sleeve: str = Field(default="all", description="low | mid | high | all")
+    severity: str = Field(default="medium", description="low | medium | high")
+
+
+class MarketNarrative(BaseModel):
+    """④ News & Sentiment Analyst — 주간 내러티브 + 이벤트 리스크. report/phase-3 §3 ④."""
+
+    weekly_summary: str = ""
+    event_risks: list[EventRisk] = Field(default_factory=list)
+
+
+class SleeveStance(BaseModel):
+    stance: str = Field(description="overweight | neutral | underweight")
+    reason: str = ""
+
+
+class ResearchView(BaseModel):
+    """⑤ Research Director — 노트 4종 종합 하우스뷰. report/phase-3 §3 ⑤.
+
+    3b-1: 생산만 (PM 미도입). 3b-2 부터 ⑥ PM 이 sleeve_stance 로 ±3%p 틸트.
+    """
+
+    sleeve_stance: dict[str, SleeveStance] = Field(default_factory=dict, description="low/mid/high")
+    cross_risks: list[str] = Field(default_factory=list)
     excluded_tickers: list[str] = Field(default_factory=list)
+    notes: str = ""
 
 
 class CIODecision(BaseModel):
@@ -489,11 +538,14 @@ class CIODecision(BaseModel):
 
 
 class CrewOutcome(BaseModel):
-    """run_crew() 결과. 3a-9: 결정론 주문에 영향 없음 (CIO HOLD 시 실행 스킵만)."""
+    """run_crew() 결과. 3b-1: ① + ②③④(async) → ⑤ → ⑧. 결정론 주문 불변 (CIO HOLD 만 실행 스킵)."""
 
     run_id: str
     macro_brief: MacroBrief
-    analyst_view: AnalystView
+    fundamental_notes: FundamentalNotes
+    thematic_notes: ThematicNotes
+    market_narrative: MarketNarrative
+    research_view: ResearchView
     cio: CIODecision
     diary_ids: list[str] = Field(default_factory=list)
     llm_used: bool = True

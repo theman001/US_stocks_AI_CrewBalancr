@@ -55,19 +55,25 @@ def _allowed_from(payload: dict[str, Any]) -> set[str]:
 
 
 def no_fabricated_numbers(
-    payload: dict[str, Any], *, extra_allowed: set[str] | None = None
+    payload: dict[str, Any], *, extra_allowed: set[str] | None = None, hedge_only: bool = False
 ) -> GuardrailFn:
-    """payload 의 숫자만 허용하는 guardrail 을 만든다. 0~12, 연도(2024~2030)는 자유 허용."""
-    allowed = _allowed_from(payload) | (extra_allowed or set()) | _REFERENCE
-    allowed |= {str(n) for n in range(0, 13)}  # 소수 목록 개수·주차 등 사소한 정수
-    allowed |= {str(y) for y in range(2024, 2031)}
+    """숫자 조작 방지 guardrail.
 
-    def _check(task_output):  # type: ignore[no-untyped-def]  # crewai 가 반환 어노테이션을 검증 (문자열이면 거부)
+    `hedge_only=True`: "약 15%" 같은 헤지 표현만 거부 (툴을 쓰는 ①②③ 용 — 툴 반환값을
+    페이로드로 못 잡으므로). `False`: 추가로 정량 주장이 payload 값인지 대조 (④⑤⑧).
+    """
+    allowed = _allowed_from(payload) | (extra_allowed or set()) | _REFERENCE
+    allowed |= {str(n) for n in range(0, 13)} | {str(y) for y in range(2024, 2031)}
+
+    def _check(task_output):  # type: ignore[no-untyped-def]  # crewai 가 반환 어노테이션을 검증
         text = getattr(task_output, "raw", None) or str(task_output)
         if _HEDGE.search(text):
-            return False, (
-                "헤지 표현('약','대략','~')+숫자 감지. 툴이 준 정확한 값만, 헤지 없이 인용하라."
+            return (
+                False,
+                "헤지 표현('약','대략','~')+숫자. 툴이 준 정확한 값만, 헤지 없이 인용하라.",
             )
+        if hedge_only:
+            return True, task_output
         for m in _NUM.finditer(text):
             tok = _norm(m.group(0))
             if not tok or tok in {"%", "-", "+"}:

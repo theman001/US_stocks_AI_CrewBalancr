@@ -20,7 +20,7 @@
 
 ## Phase 3b — 조직 완편
 
-- [ ] **3b-1 애널리스트 분할** — ② Fundamental / ③ Thematic 분리 + ④ News + ⑤ Research Director
+- [x] **3b-1 애널리스트 분할** — 통합 Analyst → ② Fundamental / ③ Thematic / ④ News 분리 + ⑤ Research Director. `agents/tools.py`(crewai 툴 래퍼 3종), `crew.py` 재작성 (① + ②③④ async → ⑤ → ⑧), `guardrails.hedge_only`(툴 쓰는 에이전트용). schemas: FundamentalNotes/ThematicNotes/MarketNarrative/ResearchView. diary claim_type +catalyst/event_risk/sleeve_stance. 22 tests. 검토: [reviews/3b-1.md](reviews/3b-1.md) (3 rounds, 2 findings). 실 DeepSeek 미검증 (잔액).
 - [ ] **3b-2 의사결정 계층** — ⑥ Portfolio Manager + ⑦ Risk Officer + 반려 루프 (crewai.Flow)
 - [ ] **3b-3 섀도 틸트 측정** — 조직 on/off NAV 병행 리포트
 

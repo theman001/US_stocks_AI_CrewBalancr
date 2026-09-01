@@ -22,12 +22,16 @@
 5. "약", "대략", "추정" 으로 수치를 말하면 실패다.
 ```
 
-## 현재 구현 (3a-9): 3 에이전트
-`config/agents.yaml` — `macro_strategist`(①) / `analyst`(②③④ 통합) / `cio`(⑧).
-`config/tasks.yaml` — `macro_brief` → `analyst_view` → `cio_decision` (Process.sequential).
-CIO 는 `APPROVED`/`HOLD` (HOLD = 이번 주 리밸런싱 보류, 주문 수량·비중 불변).
-공통 삽입 블록은 `agents/crew.py._ABSOLUTE_RULES` 가 `{absolute_rules}` 자리에 주입.
-분할(②③④⑤)·⑥PM·⑦Risk·⑨Reviewer 는 3b/Phase 4.
+## 현재 구현 (3b-1): 6 에이전트
+`config/agents.yaml` — `macro_strategist`(①) / `fundamental_analyst`(②) /
+`thematic_analyst`(③) / `news_analyst`(④) / `research_director`(⑤) / `cio`(⑧).
+`config/tasks.yaml` — `macro_brief` + `fundamental_notes` + `thematic_notes` +
+`market_narrative` (async 병렬) → `research_view` → `cio_decision` (Process.sequential).
+툴: ① news_scraper / ② news_scraper+fundamentals / ③ news_scraper+technical_indicators
+(`agents/tools.py`). guardrail: 툴 쓰는 ①②③ 은 `hedge_only`, ④⑤⑧ 은 전체 숫자 대조.
+CIO 는 `APPROVED`/`HOLD` (HOLD = 리밸런싱 보류, 주문 불변). 공통 블록은
+`agents/crew.py._ABSOLUTE_RULES` 가 `{absolute_rules}` 자리에 주입.
+⑥PM·⑦Risk 는 3b-2, ⑨Reviewer 는 Phase 4.
 
 ## 9 에이전트 규격 요약 (목표 조직)
 

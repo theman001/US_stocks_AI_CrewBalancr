@@ -54,11 +54,13 @@ uv run pytest -x -q
 - PositionSizer: 편입 수 = 예산÷하한, 저/중 균등, 고위험 ATR 역가중, 섹터캡 30% 축소
 
 ## 시나리오 6 — 크루 통합 (mock LLM) — `tests/test_agents/test_crew.py`
-- `ScriptedLLM(BaseLLM)` 로 DeepSeek 대체 (response_model / 태스크 마커로 canned JSON)
-- ① → ② → ⑧ 순차 → `CrewOutcome` (MacroBrief / AnalystView / CIODecision) 스키마 통과
-- CIO `HOLD` (CRISIS) → 일기에 `cio_override` 기록, 주문은 불변
-- 애널리스트 `excluded_tickers` → 일기 `exclusion` (`enforced: False`)
-- 3b: ⑦ Risk Officer REJECTED → Flow 재시도 1회, ⑥ 틸트 ±3%p 클램프 (여기선 미구현)
+- `ScriptedLLM(BaseLLM)` 로 DeepSeek 대체 (response_model 이름으로 canned JSON 라우팅)
+- ① + ②③④ (async) → ⑤ RD → ⑧ CIO → `CrewOutcome` 6종 스키마 통과
+- CIO `HOLD` (CRISIS) → 일기 `cio_override`, 주문 불변
+- ② `exclude_recommended` → 일기 `exclusion` (`enforced: False`)
+- ③ `catalyst` → 일기 `catalyst` (`sleeve:high` 태그), ④ 이벤트 → `event_risk`, ⑤ → `sleeve_stance`
+- guardrail `hedge_only`: 툴 수치(ROE 31%) 통과, 헤지("약 20%") 거부
+- 3b-2: ⑦ Risk REJECTED → 반려 루프 1회, ⑥ 틸트 ±3%p 클램프 (미구현)
 
 ## 시나리오 7 — 할루시네이션 가드 (**필수**) — `tests/test_agents/test_guardrails.py`
 - "약 15%" (헤지어+숫자) → `no_fabricated_numbers` reject

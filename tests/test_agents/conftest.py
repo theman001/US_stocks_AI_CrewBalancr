@@ -46,3 +46,8 @@ class ScriptedLLM(BaseLLM):
 @pytest.fixture
 def pipeline_result() -> PipelineResult:
     return make_pipeline_result()
+
+
+@pytest.fixture
+def make_pipeline_result_crisis() -> PipelineResult:
+    return make_pipeline_result(crisis=True)

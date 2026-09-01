@@ -9,15 +9,18 @@ import pytest
 import aegisvest.agents.crew as crew_mod
 from aegisvest import main, state
 from aegisvest.schemas import (
-    AnalystView,
     CIODecision,
     Contribution,
     CrewOutcome,
     CrisisFlag,
+    FundamentalNotes,
     MacroBrief,
+    MarketNarrative,
     Order,
     PaperPortfolio,
     RegimeHistoryPoint,
+    ResearchView,
+    ThematicNotes,
 )
 from tests.fixtures.pipeline import make_pipeline_result, market_data_stub
 
@@ -40,11 +43,12 @@ def _crew(verdict: str = "APPROVED") -> CrewOutcome:
     return CrewOutcome(
         run_id="x",
         macro_brief=MacroBrief(regime="BULL", confidence="high"),
-        analyst_view=AnalystView(weekly_narrative="ok"),
+        fundamental_notes=FundamentalNotes(),
+        thematic_notes=ThematicNotes(),
+        market_narrative=MarketNarrative(weekly_summary="ok"),
+        research_view=ResearchView(),
         cio=CIODecision(
-            verdict=verdict,
-            ic_memo="memo",
-            hold_reason="CRISIS" if verdict == "HOLD" else None,
+            verdict=verdict, ic_memo="memo", hold_reason="CRISIS" if verdict == "HOLD" else None
         ),
     )
 
