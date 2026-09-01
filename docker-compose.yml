@@ -1,0 +1,40 @@
+# AegisVest 단일 스택
+#
+# 로컬 개발 / repo 체크아웃이 있는 NAS: 아래 build: . 그대로.
+# OMV8 openmediavault-compose 에 이 파일 하나만 등록 (repo 없이): build 를 아래로 교체 —
+#   build:
+#     context: "https://github.com/theman001/US_stocks_AI_CrewBalancr.git#main"
+#   (private repo면 대신 image: ghcr.io/theman001/aegisvest:latest — report/phase-2 §4.6)
+#
+# 요구: Docker Compose >= v2.23.1 (configs 인라인 content)
+
+services:
+  aegisvest:
+    build: .
+    image: aegisvest:local
+    command: supercronic -passthrough-logs /app/crontab
+    env_file: .env
+    environment:
+      TZ: ${TZ:-Asia/Seoul}
+    configs:
+      - source: crontab
+        target: /app/crontab
+    volumes:
+      - ${AEGIS_DATA:-./data}/state:/app/state
+      - ${AEGIS_DATA:-./data}/cache:/app/data/cache
+      - ${AEGIS_DATA:-./data}/outputs:/app/outputs
+      - ${AEGIS_DATA:-./data}/logs:/app/logs
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: 1.0
+
+configs:
+  crontab:
+    content: |
+      CRON_TZ=Asia/Seoul
+      # 매일 06:30 KST — 감시견 + 일일 매크로 점수
+      30 6 * * *  flock -n /tmp/wd.lock   python -m aegisvest.watchdog
+      # 일요일 22:00 KST — 주간 풀 크루
+      0 22 * * 0  flock -n /tmp/crew.lock python -m aegisvest.main
+      # 월요일 23:00 KST — 판단 일기 채점 배치 (Phase 4)
+      0 23 * * 1  flock -n /tmp/eval.lock python -m aegisvest.diary.evaluate
