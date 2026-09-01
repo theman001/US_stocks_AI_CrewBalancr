@@ -30,7 +30,7 @@
   `diary/schema.py`(통제어휘 검증·`eval_signal_rules`·`magnitude_of`) + `PipelineResult.macro`
   + crew/organization 콜백이 action·magnitude·rates_dir·원자료 스냅샷 채움. 3a-9 자리표시자
   완성. 검토: [reviews/4-0.md](reviews/4-0.md) (1 round, 0 findings).
-- [ ] **4-1 evaluator** — diary/evaluate.py (claim_type별 결정론 채점 루브릭) — 시나리오 8
+- [x] **4-1 evaluator** — `diary/evaluate.py`(`run`/`needs_reflection`/CLI): 섀도델타(4종)·초과수익 vs SPY(exclusion/catalyst)·regime_call 궤적·event_risk 근사. `logger.save_entries`. 11 tests(합성). 검토: [reviews/4-1.md](reviews/4-1.md) (2 rounds, 1 finding). 임계 상수·정밀 카테고리 중앙값은 실데이터 후(4-6)/Sharadar.
 - [ ] **4-2 Performance Reviewer** — ⑨ 에이전트 (post_mortem + 태깅 + lesson_card)
 - [ ] **4-3 RAG 저장** — diary/rag.py (bge-m3 이중벡터 + ChromaDB, 기존 항목 백필)
 - [ ] **4-4 recall + 주입** — DiaryRAG.recall() (Q-D 검색, O-A 랭킹, P-D 포맷) + 에이전트 연결

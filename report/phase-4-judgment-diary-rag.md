@@ -136,6 +136,21 @@ score: 무산+무영향 → -1 (늑대소년) | 발생+예측대로 → +2 | 발
 
 나머지 claim_type도 동일 형식의 정량 규칙. **점수·verdict·attribution은 100% 파이썬.**
 
+> **⚠️ 4-1 구현 결정 (2026-09-01) — `aegisvest/diary/evaluate.py`.** 명세의 4개 예시
+> 루브릭을 현재 스키마·인프라 한계 내에서 구현하며 3계열로 정리:
+> - **섀도 델타 계열** (`allocation_tilt`/`cio_override`/`risk_veto`/`sleeve_stance`):
+>   `state/shadow.json` 의 organization − deterministic NAV 수익률 차 (0.5%p/점). 이 4개는
+>   전부 "조직 재량이 도움됐나" 질문이고 섀도 A/B 가 바로 그 답이라 재사용.
+> - **초과수익 계열** (`exclusion`/`catalyst`): 종목 수익률 vs **SPY 벤치마크** (±10%→±2점).
+>   정확한 "카테고리 중앙값" 은 시점별 스코어링 재구성 필요 → 3a-11 백테스트와 동일 이유로
+>   프로토타입 단계 미지원, Sharadar 도입 시 정밀화.
+> - **`regime_call`**: `regime_history.json` 궤적이 예측 레짐 부호와 맞은 날 비율.
+>   4주 예비 채점은 생략, 12주 최종에서 1회만 채점 (스키마에 preliminary outcome 없음).
+> - **`event_risk`**: EventRisk 스키마에 예측 방향 필드가 없어, SPY 변동폭이 severity 임계
+>   (low 2% / medium 3.5% / high 5%) 이상인지로 "발생" 근사. attribution 은 항상 `low`.
+>   방향 검증하려면 EventRisk/ThematicNote 에 `predicted_direction` 추가 필요 (후속).
+> - 임계 상수(0.5%p, ±10%, severity 임계)는 실데이터 축적 후 튜닝 (4-6). 지금은 배관 검증.
+
 ### 3.3 채점 후
 - `status: evaluated`, `outcome` 필드 채움
 - Reviewer 큐 진입 조건: `verdict ∈ {miss, partial}` **또는** `attribution == low` **또는** 무작위 샘플링된 `hit` (RAG가 실패만 담지 않도록)

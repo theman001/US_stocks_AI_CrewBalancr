@@ -95,4 +95,17 @@ def load_entries() -> list[DiaryEntry]:
     return out
 
 
-__all__ = ["derive_tags", "load_entries", "log"]
+def save_entries(entries: list[DiaryEntry]) -> None:
+    """전체 재기록 (append-only 원칙의 실용적 축소판 — ~연 수백 건 규모라 rewrite 충분).
+
+    ponytail: report/phase-4 §2.3 은 항목당 개별 파일을 명시하나, 갱신(채점·반성)이
+    필요한 필드가 있어 단일 jsonl + 전체 rewrite 로 단순화 (3a-9 부터 유지된 결정).
+    """
+    try:
+        text = "\n".join(e.model_dump_json() for e in entries)
+        _path().write_text(text + ("\n" if entries else ""), encoding="utf-8")
+    except OSError as e:
+        _log.warning("일기 갱신 실패: %s", e)
+
+
+__all__ = ["derive_tags", "load_entries", "log", "save_entries"]

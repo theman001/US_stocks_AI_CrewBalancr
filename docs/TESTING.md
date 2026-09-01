@@ -71,10 +71,12 @@ uv run pytest -x -q
 - 정성 서술("변동성 안정, 폭 약함")·연도("2026")·참조상수("200일선") → pass
 
 ## 시나리오 8 — (Phase 4) 판단 일기
-- 일기 항목 스키마 라운드트립 (직렬화/역직렬화)
-- `signal_rules` 조건식: `hy_oas_4w_change_bp=10` → `signal:credit_spread_widening` 태그
-- evaluator 채점 루브릭: 합성 shadow 데이터 → 예상 score/verdict
-- `recall()`: 유사도 < 0.55 → 무반환
+- 일기 항목 스키마 라운드트립 (`tests/test_diary.py`)
+- `eval_signal_rules({hy_oas_4w_change_bp: 15}) → credit_spread_widening`, 결측 필드 무크래시
+- `derive_tags`: CLOSED 미지값 드롭, 8개 상한, `data_snapshot` 기반 signal 자동
+- evaluator (`tests/test_diary_evaluate.py`): 합성 shadow/가격 → 예상 score/verdict/attribution,
+  not_due 스킵, 데이터 결측 → expired, `needs_reflection` 재현성
+- `recall()`: 유사도 < 0.55 → 무반환 (4-4)
 
 ## 통과 기준
 - 모든 테스트 green, ruff/mypy 클린
