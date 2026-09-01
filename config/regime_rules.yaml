@@ -1,0 +1,59 @@
+# 매크로 레짐 판별 임계값 — 근거: report/phase-2-macro-and-rebalancing.md §1
+# 5개 축은 삼항 {-2, 0, +2}, "경기" 축은 하위 3신호 평균(반올림) {-2..+2}.
+# 데이터 없는 축은 제외하고 나머지로 정규화: total = round(sum * 6 / n_present).
+
+ema_span: 5 # score_smooth = 5일 EMA (adjust=False)
+
+# 정규화 분모(present 축)가 이보다 적으면 low_confidence — 라벨을 NEUTRAL 로 강등
+# (CRISIS 오버라이드는 raw 값이므로 영향 없음). 감시견은 이 날을 history 에 안 쌓는다(3a-4).
+min_axes_for_label: 4
+
+axes:
+  vix:
+    # +2: VIX < calm_max AND 콘탱고(vix < vix3m)
+    # -2: VIX > stress_max OR 백워데이션(vix >= vix3m)
+    calm_max: 15.0
+    stress_max: 28.0
+
+  # spx_trend: +2 종가>200SMA & 50SMA 상승 / -2 종가<200SMA & 50SMA 하락 / 0 그 외.
+  # config 임계값 없음 (phase-2 "±2% 횡보"는 점수에 영향 없음).
+
+  breadth:
+    # 구성종목 중 200일선 상회 퍼센트 (0~100). 데이터는 3a-5부터.
+    strong_min: 60.0
+    weak_max: 35.0
+
+  yield_policy:
+    # +2: 10Y-3M > 0 AND fed_funds_trend in {hold, cutting}
+    # -2: (10Y-3M < deep_inversion_bp) OR
+    #     (10Y-3M < 0 AND 4주변화 <= deepening_4w_bp) OR      # 역전 심화
+    #     (직전 10Y-3M < 0 AND 4주변화 >= resteepen_4w_bp)     # 역전 후 급격 재정상화
+    deep_inversion_bp: -50.0
+    deepening_4w_bp: -10.0
+    resteepen_4w_bp: 15.0
+
+  credit:
+    # +2: HY OAS < calm_max_bp AND 4주변화 < 0 (축소)
+    # -2: HY OAS > stress_max_bp OR 4주변화 >= spike_4w_bp
+    calm_max_bp: 350.0
+    stress_max_bp: 500.0
+    spike_4w_bp: 75.0
+
+  economy:
+    # 하위 3신호 각 5단계 → 평균 반올림. 데이터 없는 신호는 제외.
+    wei: { p2: 2.0, p1: 1.0, z0: 0.0, n1: -1.0 } # WEI 퍼센트
+    regional: { p2: 10.0, p1: 3.0, z0: -3.0, n1: -10.0 } # 지역연준 평균, 원 단위
+    claims_3m: { p2: -0.05, p1: -0.01, z0: 0.01, n1: 0.10 } # IC4WSA 3개월 변화율, 소수
+
+label:
+  bull_min: 5 # total_score >= 5 -> BULL
+  bear_max: -5 # total_score <= -5 -> BEAR ; 그 사이는 NEUTRAL
+
+crisis:
+  # raw 값 하나라도 참이면 CRISIS 강제 (스무딩 무시)
+  vix_max: 35.0
+  hy_oas_max_bp: 700.0
+  spx_below_200sma_frac: 0.10 # 종가 < 200SMA * (1 - 0.10)
+  # 해제: score_smooth >= exit_score_smooth_min AND 마지막 트리거 후 exit_trading_days 경과
+  exit_score_smooth_min: -5.0
+  exit_trading_days: 5

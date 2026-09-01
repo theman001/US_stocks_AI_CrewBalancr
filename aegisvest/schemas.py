@@ -164,3 +164,42 @@ class NewsResult(BaseModel):
     ticker: str | None
     headlines: list[NewsItem]
     as_of: str
+
+
+# ─────────────────────── 레짐 엔진 (3a-3) ───────────────────────
+
+
+class RegimeHistoryPoint(BaseModel):
+    """감시견이 state/regime_history.json 에 누적하는 일별 점수."""
+
+    date: str  # YYYY-MM-DD
+    total_score: int
+
+
+class CrisisState(BaseModel):
+    """CRISIS 래치 상태 — 감시견이 state 로 persist. 해제엔 5거래일 경과 필요."""
+
+    active: bool = False
+    triggered_date: str | None = None  # 마지막으로 CRISIS 조건이 충족된 날 (YYYY-MM-DD)
+
+
+class RegimeResult(BaseModel):
+    """RegimeScoreCalculator 출력. LLM 관여 0. docs/TOOLS.md §4."""
+
+    axis_scores: dict[str, int | None] = Field(
+        description="6축(vix/spx_trend/breadth/yield_policy/credit/economy), 각 -2~+2 또는 None"
+    )
+    economy_subscores: dict[str, int | None] = Field(
+        description="wei/regional/claims, 각 -2~+2 또는 None"
+    )
+    n_axes_present: int = Field(description="점수 계산에 쓰인 축 수 (정규화 분모)")
+    low_confidence: bool = Field(
+        description="present 축 < min_axes_for_label — 라벨을 NEUTRAL 로 강등"
+    )
+    total_score: int = Field(description="-12~+12, 데이터 없는 축 제외 후 6축 스케일로 정규화")
+    score_smooth: float = Field(description="total_score 의 5일 EMA (adjust=False)")
+    regime: Regime
+    crisis_active: bool
+    crisis_reason: str | None
+    crisis_state: CrisisState = Field(description="갱신된 래치 상태 — 호출자가 persist")
+    rationale: dict[str, str] = Field(description="축별 임계값 대입 설명")

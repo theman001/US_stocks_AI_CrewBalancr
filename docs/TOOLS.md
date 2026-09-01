@@ -71,22 +71,27 @@ Output: {
 (`^VIX` `^VIX3M` `^GSPC`). 지역연준: Empire/Philly/Dallas/KC/Richmond 평균.
 시장 폭은 구성종목 가격에서 직접 계산.
 
-## 4. RegimeScoreCalculator
+## 4. RegimeScoreCalculator  → `regime_score(macro, history, crisis_state) -> RegimeResult`
 ```
-Input:  MacroDataTool 출력 dict, history: list[dict] (일별 누적)
-Output: {
-  "axis_scores": {"vix": int, "spx_trend": int, "breadth": int,
-                  "yield_policy": int, "credit": int, "economy": int},   # 각 -2~+2
-  "economy_subscores": {"wei": int, "regional_fed": int, "claims": int},
-  "total_score": int,                                   # -12~+12
-  "score_smooth": float,                                # 5일 EMA
-  "regime": "BULL|NEUTRAL|BEAR|CRISIS",
-  "crisis_override": bool, "crisis_reason": str | None,
-  "interp_anchors": [float, float],                     # 보간에 쓴 상·하 기준점
-  "rationale": {axis: "임계값 대입 설명"}
+Input:  macro: MacroData
+        history: list[RegimeHistoryPoint]  (감시견이 state/regime_history.json 에 누적)
+        crisis_state: CrisisState  (직전 래치 상태, 감시견이 persist)
+Output: RegimeResult {
+  axis_scores: {vix, spx_trend, breadth, yield_policy, credit, economy}  # 각 -2~+2 또는 None
+  economy_subscores: {wei, regional, claims}                             # 각 -2~+2 또는 None
+  n_axes_present: int
+  low_confidence: bool          # present < min_axes_for_label(4) → 라벨 NEUTRAL 강등
+  total_score: int              # -12~+12, present 축 합 * 6/n_present 정규화 후 clamp
+  score_smooth: float           # 5일 EMA (adjust=False)
+  regime: BULL|NEUTRAL|BEAR|CRISIS
+  crisis_active: bool, crisis_reason: str | None
+  crisis_state: CrisisState     # 갱신본 — 호출자(감시견)가 persist
+  rationale: {axis: "임계값 대입 설명"}
 }
 ```
-로직은 `config/regime_rules.yaml`. **LLM 관여 0.** watchdog 이 매일 호출.
+임계값은 `config/regime_rules.yaml` (Pydantic 검증: `aegisvest/rules.py`). **LLM 관여 0.**
+감시견(3a-4)이 매일 호출하고 `total_score` 를 history 에 append (단 `low_confidence` 인 날 제외).
+보간 앵커는 AllocationTableTool(§5) 소관 — 레짐 계산기엔 없음.
 
 ## 5. AllocationTableTool
 ```
