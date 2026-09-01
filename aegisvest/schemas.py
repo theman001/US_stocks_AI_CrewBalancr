@@ -447,3 +447,81 @@ class PipelineResult(BaseModel):
     orders: list[Order]
     prices: dict[str, float] = Field(description="주문 실행용 — 호출자가 PaperBroker 에 전달")
     notes: list[str] = Field(default_factory=list)
+
+
+# ─────────────────────── 에이전트 계층 (3a-9) ───────────────────────
+
+
+class MacroBrief(BaseModel):
+    """① Macro Strategist 출력. 해설·판단만 — 배분 숫자 언급 금지. report/phase-3 §3 ①."""
+
+    regime: str
+    confidence: str = Field(description="high | medium | low")
+    axis_conflicts: list[str] = Field(default_factory=list, description="축 간 상충 서술")
+    risk_scenarios: list[str] = Field(default_factory=list, description="향후 2~4주 시나리오")
+    watch_items: list[str] = Field(default_factory=list)
+
+
+class AnalystNote(BaseModel):
+    ticker: str
+    thesis_1line: str
+    quality_flags: list[str] = Field(default_factory=list, description="정성 리스크 플래그")
+    exclude_recommended: bool = False
+
+
+class AnalystView(BaseModel):
+    """②③④ 통합 Analyst 출력 (3b 에서 분할). exclude 는 3a-9 에선 권고만 (주문 불변)."""
+
+    low_mid_notes: list[AnalystNote] = Field(default_factory=list)
+    high_notes: list[AnalystNote] = Field(default_factory=list)
+    weekly_narrative: str = ""
+    event_risks: list[str] = Field(default_factory=list)
+    excluded_tickers: list[str] = Field(default_factory=list)
+
+
+class CIODecision(BaseModel):
+    """⑧ CIO 출력. 승인 또는 보류만 — 주문 수량·비중 불변. report/phase-3 §3 ⑧ + 사용자 결정."""
+
+    verdict: str = Field(description="APPROVED | HOLD")
+    ic_memo: str
+    concerns: list[str] = Field(default_factory=list)
+    hold_reason: str | None = Field(default=None, description="HOLD 시 필수")
+
+
+class CrewOutcome(BaseModel):
+    """run_crew() 결과. 3a-9: 결정론 주문에 영향 없음 (CIO HOLD 시 실행 스킵만)."""
+
+    run_id: str
+    macro_brief: MacroBrief
+    analyst_view: AnalystView
+    cio: CIODecision
+    diary_ids: list[str] = Field(default_factory=list)
+    llm_used: bool = True
+
+
+class DiaryEntry(BaseModel):
+    """판단 일기 항목. report/phase-4 §2.2. 기록 시점엔 결정·상황만, 결과·교훈은 Phase 4 append."""
+
+    id: str
+    run_id: str
+    agent: str
+    created_at: str  # ISO8601
+    claim_type: str  # regime_call | exclusion | cio_override | ...
+    claim: str
+    reasoning: str
+    supporting_refs: list[str] = Field(default_factory=list)
+    data_snapshot: dict[str, float | int | str | None] = Field(default_factory=dict)
+    decision: dict[str, object] = Field(default_factory=dict)
+    horizon_weeks: int
+    evaluate_after: list[str] = Field(default_factory=list, description="YYYY-MM-DD 채점 예정일")
+    shadow_link: str | None = None
+    status: str = "open"
+    situation_text: str = ""
+    tags: list[str] = Field(default_factory=list)
+    # ── Phase 4 append 대상 (기록 시 None) ──
+    situation_vector_id: str | None = None
+    outcome: dict[str, object] | None = None
+    post_mortem: str | None = None
+    lesson_card: str | None = None
+    lesson_vector_id: str | None = None
+    rag_status: str = "pending_schema"

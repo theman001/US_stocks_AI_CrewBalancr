@@ -53,16 +53,17 @@ uv run pytest -x -q
 - CRISIS 매크로 → `allocation.category_targets_total["high"] == 0`, 슬리브 50%
 - PositionSizer: 편입 수 = 예산÷하한, 저/중 균등, 고위험 ATR 역가중, 섹터캡 30% 축소
 
-## 시나리오 6 — 파이프라인 통합 (mock LLM)
-- DeepSeek 호출을 결정적 stub(recorded) 로 교체
-- 전체 크루 → 최종 출력이 `FinalPortfolio` 스키마 통과
-- Risk Officer 가 REJECTED 반환하도록 조작 → Flow 재시도 1회 후 중단
-- 최종 포트 카테고리 합 + 현금 = 100% (±0.1%)
-- ⑥ 재량: 틸트가 ±3%p 초과하도록 stub → 파이프라인이 클램프 또는 반려
+## 시나리오 6 — 크루 통합 (mock LLM) — `tests/test_agents/test_crew.py`
+- `ScriptedLLM(BaseLLM)` 로 DeepSeek 대체 (response_model / 태스크 마커로 canned JSON)
+- ① → ② → ⑧ 순차 → `CrewOutcome` (MacroBrief / AnalystView / CIODecision) 스키마 통과
+- CIO `HOLD` (CRISIS) → 일기에 `cio_override` 기록, 주문은 불변
+- 애널리스트 `excluded_tickers` → 일기 `exclusion` (`enforced: False`)
+- 3b: ⑦ Risk Officer REJECTED → Flow 재시도 1회, ⑥ 틸트 ±3%p 클램프 (여기선 미구현)
 
-## 시나리오 7 — 할루시네이션 가드 (**필수**)
-- 에이전트 출력에 `source_call_id` 없는 숫자 필드 주입 → `no_fabricated_numbers` reject
-- 출력에 "약 15%" 문자열 → 정규식 guardrail reject
+## 시나리오 7 — 할루시네이션 가드 (**필수**) — `tests/test_agents/test_guardrails.py`
+- "약 15%" (헤지어+숫자) → `no_fabricated_numbers` reject
+- 페이로드에 없는 "55%" → reject / 페이로드 유래 "40%"·"6"·"90" → pass
+- 정성 서술("변동성 안정, 폭 약함")·연도("2026")·참조상수("200일선") → pass
 
 ## 시나리오 8 — (Phase 4) 판단 일기
 - 일기 항목 스키마 라운드트립 (직렬화/역직렬화)

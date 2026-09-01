@@ -31,3 +31,13 @@ def post(text: str, *, username: str = "AegisVest", channel: str | None = None) 
         _log.warning("Mattermost 알림 실패: %s", exc)
         return False
     return True
+
+
+def post_agent_note(
+    agent: str, emoji: str, summary: str, detail: str = "", *, channel: str = "aegis-research"
+) -> bool:
+    """에이전트 노트 1건 게시 — `에이전트 · 이모지 · 요약` + 상세 접기. report/phase-3 §6."""
+    body = f"{emoji} **{agent}** · {summary}"
+    if detail:
+        body += f"\n<details><summary>상세</summary>\n\n{detail}\n</details>"
+    return post(body, username="AegisVest 조직", channel=channel)

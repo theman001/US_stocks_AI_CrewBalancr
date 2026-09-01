@@ -22,7 +22,14 @@
 5. "약", "대략", "추정" 으로 수치를 말하면 실패다.
 ```
 
-## 9 에이전트 규격 요약
+## 현재 구현 (3a-9): 3 에이전트
+`config/agents.yaml` — `macro_strategist`(①) / `analyst`(②③④ 통합) / `cio`(⑧).
+`config/tasks.yaml` — `macro_brief` → `analyst_view` → `cio_decision` (Process.sequential).
+CIO 는 `APPROVED`/`HOLD` (HOLD = 이번 주 리밸런싱 보류, 주문 수량·비중 불변).
+공통 삽입 블록은 `agents/crew.py._ABSOLUTE_RULES` 가 `{absolute_rules}` 자리에 주입.
+분할(②③④⑤)·⑥PM·⑦Risk·⑨Reviewer 는 3b/Phase 4.
+
+## 9 에이전트 규격 요약 (목표 조직)
 
 | # | 에이전트 | role 요지 | temp | 툴 | 재량 |
 |---|---|---|---|---|---|

@@ -1,0 +1,51 @@
+# CrewAI 태스크 정의. context/output_pydantic/guardrail/callback 은 crew.py 가 코드로 연결.
+# {..._json} 플레이스홀더는 crew.py 가 kickoff(inputs=) 로 주입 (결정론 파이프라인 결과).
+
+macro_brief:
+  agent: macro_strategist
+  description: >
+    아래는 이번 주 결정론 레짐 산출이다. 숫자를 다시 만들지 말고 해석만 하라.
+
+    [레짐 산출] {regime_json}
+    [파이프라인 노트] {pipeline_notes}
+
+    할 일: (1) 현재 레짐을 두세 문장으로 평이하게 설명, (2) 축 간 상충을 나열
+    (예: 변동성은 안정인데 폭은 약함), (3) 향후 2~4주 리스크 시나리오 2~3개,
+    (4) 관찰 포인트. confidence 는 low_confidence 플래그와 n_axes_present 로 판단
+    (high/medium/low). 배분 비중은 언급 금지.
+  expected_output: >
+    MacroBrief JSON: regime(문자열), confidence(high|medium|low),
+    axis_conflicts(문자열 배열), risk_scenarios(문자열 배열), watch_items(문자열 배열).
+
+analyst_view:
+  agent: analyst
+  description: >
+    결정론 스크리너·스코어러가 고른 후보와 초안이다. 숫자는 확정값이니 인용만 하라.
+
+    [스크린·스코어 상위 후보] {candidates_json}
+    [초안 포트폴리오] {draft_json}
+
+    할 일: (1) low_mid_notes — LOW/MID 상위 후보별 한 줄 논지 + quality_flags,
+    (2) high_notes — HIGH 후보별 테마/촉매/크라우딩 코멘트, (3) weekly_narrative —
+    이번 주 시장 내러티브 3~4문장, (4) event_risks — 매크로 점수에 안 잡히는 이벤트,
+    (5) excluded_tickers — 정성 리스크가 큰 종목만 (없으면 빈 배열). 편입 강제 불가.
+  expected_output: >
+    AnalystView JSON: low_mid_notes[{ticker,thesis_1line,quality_flags[],exclude_recommended}],
+    high_notes[...], weekly_narrative, event_risks[], excluded_tickers[].
+
+cio_decision:
+  agent: cio
+  description: >
+    매크로 브리프와 애널리스트 뷰는 위 컨텍스트에 있다. 아래는 결정론 산출이다.
+
+    [초안 포트폴리오] {draft_json}
+    [제약 검증] {constraints_json}
+    [배분 요약] {allocation_json}
+    [레짐] {regime_summary}
+
+    할 일: 최종 verdict 를 APPROVED 또는 HOLD 로 정하라. 기본은 APPROVED.
+    HOLD 는 (a) CRISIS 레짐이거나 (b) 애널리스트가 중대 리스크를 정당하게 제기했거나
+    (c) 제약 검증이 FAIL 이고 그 위반이 실질적일 때만. HOLD 면 hold_reason 필수.
+    주문 수량·비중은 바꾸지 마라 — 승인/보류만. ic_memo 에 판단 근거를 3~5문장.
+  expected_output: >
+    CIODecision JSON: verdict(APPROVED|HOLD), ic_memo, concerns[], hold_reason(HOLD 시).

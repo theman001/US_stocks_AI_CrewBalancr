@@ -74,8 +74,12 @@ ignore_missing_imports = true
 # ─────────────────────────── pytest ─────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers"
+addopts = '-q --strict-markers -m "not llm and not net"'
 markers = [
     "llm: 실제 DeepSeek API 필요 (기본 스킵)",
     "net: 네트워크 필요",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:crewai.*",
+    "ignore:function callbacks cannot be serialized:UserWarning",
 ]
