@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.venv/**)",
+      "Read(./state/**)",
+      "Read(./data/cache/**)",
+      "Read(./outputs/**)",
+      "Read(./logs/**)",
+      "Read(./**/*.parquet)",
+      "Bash(rm -rf:*)",
+      "Bash(git push:*)",
+      "Bash(docker system prune:*)"
+    ],
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(python -m aegisvest:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git switch -c:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose config:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [ -n \"$f\" ] || exit 0; case \"$f\" in *.py) uv run ruff check --fix -q -- \"$f\"; uv run ruff format -q -- \"$f\" ;; esac; } 2>/dev/null || true",
+            "statusMessage": "ruff"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d aegisvest || exit 0; { ! git diff --quiet HEAD -- '*.py' 2>/dev/null || test -n \"$(git ls-files -o --exclude-standard -- '*.py')\"; } || exit 0; uv run ruff check aegisvest && uv run mypy aegisvest && uv run pytest -q",
+            "statusMessage": "verify",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+# BUILD_PLAN — 빌드 진행 체크리스트
+
+> 근거: `report/phase-3-organization-and-paper-trading.md` §9 + `report/phase-4-judgment-diary-rag.md` §10
+> 단계 완료 시: `review-stage` 스킬로 검토 → 0건 도달 → ✅ 체크 + `docs/reviews/<stage>.md` 링크 → 커밋 → `CLAUDE.md` "현재 빌드 단계" 갱신.
+> 1~8 (3a 코어)는 **LLM 없이** 완성·테스트 가능.
+
+## Phase 3a — 결정론 코어 + 최소 조직
+
+- [x] **3a-1 스캐폴딩** — pyproject.toml, config.py, schemas.py(primitives), .env.example, Dockerfile, docker-compose.yml, .python-version(3.12), 디렉토리, tests/test_scaffolding.py — `uv sync`/ruff/mypy/pytest 통과 (docker build 는 ARM/OMV 측에서 검증). 커밋 `build/3a-1-scaffolding`
+- [ ] **3a-2 데이터 툴** — market_data, fundamentals, macro_data, news + 캐시 — 시나리오 1
+- [ ] **3a-3 레짐 엔진** — regime.py + config/regime_rules.yaml — 시나리오 2 (필수)
+- [ ] **3a-4 감시견** — watchdog.py (위기 체크 + 매크로 점수 누적 + regime_history.json) — 독립 실행
+- [ ] **3a-5 스크리너 + 스코어링** — screener, scoring + config/filters/*, config/scoring/* — 시나리오 3
+- [ ] **3a-6 배분 + 리밸런싱** — allocation(보간), rebalance(현금흐름/밴드/쿨다운), constraints — 시나리오 4·5 (4 필수)
+- [ ] **3a-7 PaperBroker** — broker/paper, broker/benchmarks, broker/shadow — equity curve 생성
+- [ ] **3a-8 pipeline.py** — run_pipeline() 결정론 전체 조립 — 시나리오 6 일부
+- [ ] **3a-9 에이전트 3 + 일기 훅** — llm.py, agents/(Macro Strategist / 통합 Analyst / CIO), no_fabricated_numbers, task_callback Mattermost, diary/schema.py + diary/logger.py — 시나리오 7 (필수)
+- [ ] **3a-10 리포트 + main** — report.py, notify.py, main.py (주간 크루 전체) — 통합
+- [ ] **3a-11 backtest.py** — 3a-2~8을 과거 데이터로 루프 — Gate A
+
+## Phase 3b — 조직 완편
+
+- [ ] **3b-1 애널리스트 분할** — ② Fundamental / ③ Thematic 분리 + ④ News + ⑤ Research Director
+- [ ] **3b-2 의사결정 계층** — ⑥ Portfolio Manager + ⑦ Risk Officer + 반려 루프 (crewai.Flow)
+- [ ] **3b-3 섀도 틸트 측정** — 조직 on/off NAV 병행 리포트
+
+## Phase 4 — 판단 일기 RAG (모의투자 ~3개월 데이터 후)
+
+- [ ] **4-1 evaluator** — diary/evaluate.py (claim_type별 결정론 채점 루브릭) — 시나리오 8
+- [ ] **4-2 Performance Reviewer** — ⑨ 에이전트 (post_mortem + 태깅 + lesson_card)
+- [ ] **4-3 RAG 저장** — diary/rag.py (bge-m3 이중벡터 + ChromaDB, 기존 항목 백필)
+- [ ] **4-4 recall + 주입** — DiaryRAG.recall() (Q-D 검색, O-A 랭킹, P-D 포맷) + 에이전트 연결
+- [ ] **4-5 거버넌스 CLI** — `python -m aegisvest.diary review`
+- [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정
+- [ ] **4-7 (추후) O-D** — 학습형 랭킹 가중 (채점 항목 ≥ ~150)
+
+## 배포 (병행)
+
+- [ ] docker-compose.yml — OMV8 단일 스택 (build.context git URL + configs 인라인 crontab + supercronic)
+- [ ] cron: 감시견 매일 06:30 / 크루 일요일 22:00 / 일기 채점 월요일 23:00 (KST)
+- [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
+- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64)
+
+## 명세 미해결 (개발 중 확정)
+
+- [ ] 나무증권 해외주식 세제 확정 → phase-2 §5 / phase-3 §9 잠정 규칙 대체
+- [ ] 성공 판정 합격선 최종 수치 (샤프 임계, 관찰 기간)
+- [ ] NewsScraper 소스 선정 (RSS / 무료 API)
+- [ ] 백테스트 Sharadar 구독 시점 (Gate A 최종 검증 직전)

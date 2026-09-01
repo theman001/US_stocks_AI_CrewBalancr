@@ -1,0 +1,32 @@
+# python / venv
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# secrets
+.env
+*.key
+
+# claude local
+.claude/settings.local.json
+
+# runtime (OMV 볼륨)
+state/
+outputs/
+logs/
+data/cache/
+*.parquet
+*.duckdb
+*.log
+
+# models / vector db
+state/chroma/
+models/
+
+# notebooks
+.ipynb_checkpoints/
