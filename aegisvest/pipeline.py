@@ -254,6 +254,7 @@ def run_pipeline(
     return PipelineResult(
         as_of=macro.as_of,
         nav_usd=round(nav, 2),
+        macro=macro,
         regime=regime,
         allocation=alloc,
         screen_counts=screen_counts,

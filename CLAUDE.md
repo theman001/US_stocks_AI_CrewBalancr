@@ -14,11 +14,13 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-**Phase 3 완료** (3a 코어, 3a-11 보류, 3b 조직 완편). 다음: Phase 4 (판단 일기 RAG,
-모의투자 ~3개월 데이터 후) 또는 배포(OMV8 docker-compose). `docs/BUILD_PLAN.md` 참조.
+Phase 3 완료 (3a 코어, 3a-11 보류, 3b 조직 완편). **Phase 4 빌드 중** (가동은 모의투자
+~3개월 데이터 후지만 evaluate/Reviewer/RAG 코드는 지금 만들고 합성데이터로 테스트).
+4-0(태깅 하네스) 완료, 다음 4-1(evaluate.py). `docs/BUILD_PLAN.md` 참조.
 포트 상태는 `state/shadow.json` (organization = 실제, deterministic = 병행 시뮬).
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
-`crewai` 1.15 설치됨 (`uv sync --extra agents`). `docker` 는 이 개발환경에 없음.
+`crewai` 1.15, `chromadb`+`FlagEmbedding`(bge-m3) 설치됨 (`uv sync --extra agents --extra diary`).
+`docker` 는 이 개발환경에 없음.
 DeepSeek 키는 `.env` 에 있으나 **계정 잔액 부족** — 실 크루 미검증, mock(ScriptedLLM) 로 테스트.
 펀더멘털·뉴스·유니버스는 yfinance/RSS/정적파일 (FMP 무료 티어 제한). FRED 키 검증됨.
 개발 API 키: FRED/FMP/DeepSeek 없음, Mattermost 웹훅만 있음. FRED/FMP 경로는 mock 테스트.

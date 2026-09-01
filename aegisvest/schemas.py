@@ -436,6 +436,7 @@ class PipelineResult(BaseModel):
 
     as_of: str
     nav_usd: float
+    macro: MacroData = Field(description="일기 data_snapshot·signal 태깅용 원자료 (Phase 4)")
     regime: RegimeResult
     allocation: AllocationTargets
     screen_counts: dict[str, int]

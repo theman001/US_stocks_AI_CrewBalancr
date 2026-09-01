@@ -120,6 +120,20 @@ def test_risk_reject_triggers_one_retry(pipeline_result: PipelineResult) -> None
     assert vet and vet[0].decision["held"] is True
 
 
+def test_diary_tags_include_macro_signals(make_pipeline_result_crisis: PipelineResult) -> None:
+    """위기 매크로(fixture) → regime_call 태그에 crisis_shift + signal 자동 평가."""
+    run_organization(
+        make_pipeline_result_crisis, portfolio=_pf(), prices={"L0": 100.0, "M0": 100.0}, llm=_llm()
+    )
+    rc = next(e for e in load_entries() if e.claim_type == "regime_call")
+    assert "regime:crisis" in rc.tags
+    assert "action:crisis_shift" in rc.tags
+    assert "rates_dir:hiking" in rc.tags
+    assert "signal:credit_spread_widening" in rc.tags
+    assert "signal:vix_term_backwardation" in rc.tags
+    assert rc.data_snapshot["hy_oas_bp"] == 800.0  # macro 원자료가 snapshot 에 그대로
+
+
 def test_allocation_tilt_logged_when_material(pipeline_result: PipelineResult) -> None:
     # 결정론 초안 mid 4% → PM 이 36% 로 대폭 틸트 (클램프되지만 여전히 material)
     run_organization(

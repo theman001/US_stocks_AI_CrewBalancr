@@ -29,7 +29,7 @@ from aegisvest.agents.crew import (
 )
 from aegisvest.agents.pm import clamp_pm_draft
 from aegisvest.diary import logger as diary
-from aegisvest.diary.schema import derive_tags
+from aegisvest.diary.schema import derive_tags, magnitude_of
 from aegisvest.pipeline import build_orders, category_usd
 from aegisvest.schemas import (
     CIODecision,
@@ -281,18 +281,31 @@ def run_organization(
     )
 
 
+def _diary_snapshot(pr: PipelineResult) -> dict[str, float | int | str | None]:
+    snap = pr.macro.model_dump(exclude={"stale_fields"})
+    snap.update(
+        regime=pr.regime.regime.value,
+        score_smooth=round(pr.regime.score_smooth, 2),
+        nav_usd=pr.nav_usd,
+    )
+    return snap
+
+
 def _log_org_diary(
     st: _OrgState, org_draft: DraftPortfolio, pr: PipelineResult, run_id: str, sink: list[str]
 ) -> None:
     reg = pr.regime.regime.value
-    snap: dict[str, float | int | str | None] = {
-        "regime": reg,
-        "score_smooth": round(pr.regime.score_smooth, 2),
-        "nav_usd": pr.nav_usd,
-    }
+    snap = _diary_snapshot(pr)
+    rates_dir = pr.macro.fed_funds_trend
     det = pr.draft.category_weights
     tilts = {c: round(org_draft.category_weights.get(c, 0.0) - det.get(c, 0.0), 4) for c in _CATS}
     if any(abs(v) > 0.005 for v in tilts.values()):
+        dom = max(tilts, key=lambda c: abs(tilts[c]))
+        action = (
+            "defensive_tilt"
+            if tilts.get("high", 0.0) < 0 or tilts.get("low", 0.0) > 0
+            else "offensive_tilt"
+        )
         e = diary.log(
             run_id=run_id,
             agent="Portfolio Manager",
@@ -303,7 +316,15 @@ def _log_org_diary(
             decision={"tilts_pp": tilts, "enforced": True},
             situation_text=f"[상황] {pr.as_of} 레짐 {reg}, NAV ${pr.nav_usd:.0f}",
             shadow_link=f"state/shadow.json#{run_id}",
-            tags=derive_tags(regime=reg, claim_type="allocation_tilt"),
+            tags=derive_tags(
+                regime=reg,
+                claim_type="allocation_tilt",
+                sleeve=dom,
+                action=action,
+                magnitude=magnitude_of(max(abs(v) for v in tilts.values()) * 100),
+                rates_dir=rates_dir,
+                data_snapshot=snap,
+            ),
         )
         if hasattr(e, "id"):
             sink.append(e.id)
@@ -318,7 +339,13 @@ def _log_org_diary(
             data_snapshot=snap,
             decision={"verdict": "REJECTED", "held": st.held},
             situation_text=f"[상황] {pr.as_of} 레짐 {reg}",
-            tags=derive_tags(regime=reg, claim_type="risk_veto"),
+            tags=derive_tags(
+                regime=reg,
+                claim_type="risk_veto",
+                action="veto",
+                rates_dir=rates_dir,
+                data_snapshot=snap,
+            ),
         )
         if hasattr(e, "id"):
             sink.append(e.id)

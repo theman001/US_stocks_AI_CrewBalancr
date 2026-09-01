@@ -5,7 +5,14 @@ from __future__ import annotations
 import datetime as dt
 
 from aegisvest.diary import logger as diary
-from aegisvest.diary.schema import default_horizon_weeks, derive_tags, evaluate_dates
+from aegisvest.diary.schema import (
+    default_horizon_weeks,
+    derive_tags,
+    diary_taxonomy,
+    eval_signal_rules,
+    evaluate_dates,
+    magnitude_of,
+)
 from aegisvest.schemas import DiaryEntry
 
 
@@ -87,3 +94,43 @@ def test_derive_tags_shape() -> None:
     assert "regime:neutral" in tags
     assert "sleeve:high" in tags
     assert "signal:credit_spread_widening" in tags
+
+
+def test_derive_tags_rejects_unknown_closed_value() -> None:
+    tags = derive_tags(regime="NEUTRAL", claim_type="allocation_tilt", action="not_a_real_action")
+    assert not any(t.startswith("action:") for t in tags)
+
+
+def test_derive_tags_drops_unknown_signal() -> None:
+    tags = derive_tags(regime="BULL", claim_type="regime_call", signals=("not_a_signal",))
+    assert not any(t.startswith("signal:") for t in tags)
+
+
+def test_derive_tags_caps_at_max() -> None:
+
+    tags = derive_tags(
+        regime="BULL",
+        claim_type="regime_call",
+        signals=tuple(diary_taxonomy().semi_open["signal"]),  # 훨씬 많이 매칭
+    )
+    assert len(tags) <= diary_taxonomy().max_tags_per_entry
+
+
+def test_eval_signal_rules_matches_snapshot() -> None:
+
+    tags = eval_signal_rules({"hy_oas_4w_change_bp": 15.0, "vix": 22.0, "vix3m": 19.0})
+    assert "credit_spread_widening" in tags
+    assert "vix_term_backwardation" in tags
+
+
+def test_eval_signal_rules_missing_field_no_crash() -> None:
+
+    assert eval_signal_rules({}) == []
+
+
+def test_magnitude_of_tiers() -> None:
+
+    assert magnitude_of(0.5) == "minor"
+    assert magnitude_of(1.5) == "moderate"
+    assert magnitude_of(3.0) == "large"
+    assert magnitude_of(25.0) == "structural"

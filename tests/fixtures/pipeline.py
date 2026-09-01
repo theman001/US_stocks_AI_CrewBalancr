@@ -18,6 +18,7 @@ from aegisvest.schemas import (
     SizedPosition,
     SizingResult,
 )
+from tests.fixtures.macro import macro as macro_stub
 
 
 def market_data_stub(ticker: str, price: float = 100.0) -> MarketData:
@@ -147,9 +148,15 @@ def make_pipeline_result(
         cooldown_blocked=[],
         post_action_weights={"low": 0.05, "mid": 0.04, "high": 0.0, "cash": 0.91},
     )
+    mc = (
+        macro_stub(as_of=as_of, vix=40.0, vix3m=35.0, hy_oas_bp=800.0, hy_oas_4w_change_bp=150.0)
+        if crisis
+        else macro_stub(as_of=as_of)
+    )
     return PipelineResult(
         as_of=as_of,
         nav_usd=1000.0,
+        macro=mc,
         regime=regime,
         allocation=alloc,
         screen_counts={"low": 5, "mid": 4, "high": 0},

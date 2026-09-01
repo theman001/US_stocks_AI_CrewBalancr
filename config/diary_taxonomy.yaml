@@ -1,0 +1,99 @@
+# 판단 일기 통제 어휘 — report/phase-4 §7.1. CLOSED 는 enum 강제, SEMI-OPEN 은 큐레이션.
+# 기록 시 태그(regime/sleeve/claim_type/action/magnitude/rates_dir/signal)는 파이썬이 확정.
+# event/theme/mistake 는 반성 시 Reviewer(LLM) 가 이 목록에서만 선택 (자유생성 아님).
+
+closed:
+  regime: [bull, neutral, bear, crisis, bull_to_neutral, neutral_to_bear, bear_to_neutral, neutral_to_bull]
+  sleeve: [low, mid, high, allocation, cash]
+  claim_type: [regime_call, sleeve_stance, allocation_tilt, exclusion, event_risk, catalyst, risk_veto, cio_override]
+  action: [defensive_tilt, offensive_tilt, exclusion, hold, crisis_shift, catalyst_bet, veto]
+  outcome: [hit, miss, partial, inconclusive]
+  magnitude: [minor, moderate, large, structural] # <1pp / 1~2pp / >2pp / 슬리브 on-off
+  rates_dir: [hiking, hold, cutting]
+  attribution: [high, low]
+  mistake:
+    [
+      missed_leading_signal,
+      overreacted_to_news,
+      anchoring,
+      crowding_blindspot,
+      premature_exit,
+      stale_thesis,
+      ignored_base_rate,
+      over_hedged,
+      none,
+    ]
+
+semi_open:
+  signal:
+    [
+      credit_spread_widening,
+      credit_spread_tightening,
+      yield_curve_inversion,
+      yield_curve_resteepening,
+      vix_spike,
+      vix_term_backwardation,
+      breadth_deterioration,
+      breadth_thrust,
+      momentum_break,
+      golden_cross,
+      death_cross,
+      earnings_revision_down,
+      earnings_revision_up,
+      dollar_strength,
+      dollar_weakness,
+    ]
+  event:
+    [
+      fomc,
+      cpi_surprise,
+      ppi_surprise,
+      jobs_report,
+      regulation,
+      antitrust,
+      tariff,
+      geopolitical,
+      election,
+      bank_stress,
+      sovereign_stress,
+      earnings,
+      guidance_cut,
+      fda_decision,
+      product_launch,
+      index_rebalance,
+    ]
+  theme:
+    [
+      ai_infra,
+      ai_software,
+      semis,
+      biotech,
+      glp1,
+      clean_energy,
+      nuclear,
+      space,
+      quantum,
+      fintech,
+      crypto_adjacent,
+      defense,
+      rate_sensitive,
+      defensives,
+    ]
+
+# 결정론 태그 규칙 — snapshot(data_snapshot) 조건 → signal 태그. 파이썬이 기록 시 평가.
+# 표현식은 `aegisvest.diary.schema._SAFE_EVAL` 로 평가 (변수=data_snapshot 키, eval 아님).
+signal_rules:
+  credit_spread_widening: "hy_oas_4w_change_bp is not None and hy_oas_4w_change_bp >= 10"
+  credit_spread_tightening: "hy_oas_4w_change_bp is not None and hy_oas_4w_change_bp <= -10"
+  vix_spike: "vix_1d_change_pct is not None and vix_1d_change_pct >= 0.25"
+  vix_term_backwardation: "vix is not None and vix3m is not None and vix > vix3m"
+  breadth_deterioration: "pct_above_200dma is not None and pct_above_200dma < 40 and (pct_above_200dma_4w_change or 0) < 0"
+  breadth_thrust: "pct_above_200dma_4w_change is not None and pct_above_200dma_4w_change >= 20"
+  yield_curve_inversion: "yc_10y_3m_bp is not None and yc_10y_3m_bp < 0"
+  yield_curve_resteepening: "yc_10y_3m_4w_change_bp is not None and yc_10y_3m_4w_change_bp >= 15 and (yc_10y_3m_prev_bp or 0) < 0"
+  death_cross: "sma50 is not None and sma200 is not None and sma50_prev is not None and sma200_prev is not None and sma50 < sma200 and sma50_prev >= sma200_prev"
+  golden_cross: "sma50 is not None and sma200 is not None and sma50_prev is not None and sma200_prev is not None and sma50 > sma200 and sma50_prev <= sma200_prev"
+
+max_tags_per_entry: 8
+similarity_floor: 0.55
+recency_halflife_months: 18

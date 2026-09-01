@@ -342,15 +342,16 @@ def _summary(key: str, model: Any) -> str:
     return fns.get(key, lambda _m: key)(model)
 
 
-def _dc_macro(m: Any) -> dict[str, Any]:
+def _dc_macro(m: Any, pr: PipelineResult) -> dict[str, Any]:
     return {
         "claim": f"레짐 {m.regime} 유지 전망 (confidence {m.confidence})",
         "reasoning": " / ".join(m.risk_scenarios[:3]) or m.regime,
         "decision": {"regime": m.regime, "watch_items": m.watch_items},
+        "action": "crisis_shift" if pr.regime.crisis_active else None,
     }
 
 
-def _dc_fundamental(m: Any) -> dict[str, Any] | None:
+def _dc_fundamental(m: Any, pr: PipelineResult) -> dict[str, Any] | None:
     ex = [n.ticker for n in m.notes if n.exclude_recommended]
     if not ex:
         return None
@@ -359,10 +360,11 @@ def _dc_fundamental(m: Any) -> dict[str, Any] | None:
         "claim": f"펀더멘털 제외 권고: {', '.join(ex)}",
         "reasoning": why[:400],
         "decision": {"excluded": ex, "enforced": False},
+        "action": "exclusion",
     }
 
 
-def _dc_thematic(m: Any) -> dict[str, Any] | None:
+def _dc_thematic(m: Any, pr: PipelineResult) -> dict[str, Any] | None:
     cats = [n for n in m.notes if n.catalyst]
     if not cats:
         return None
@@ -372,10 +374,12 @@ def _dc_thematic(m: Any) -> dict[str, Any] | None:
         "claim": dates[:300],
         "reasoning": mom[:400],
         "decision": {"catalysts": [{"ticker": n.ticker, "date": n.catalyst_date} for n in cats]},
+        "action": "catalyst_bet",
+        "sleeve": "high",
     }
 
 
-def _dc_news(m: Any) -> dict[str, Any] | None:
+def _dc_news(m: Any, pr: PipelineResult) -> dict[str, Any] | None:
     if not m.event_risks:
         return None
     return {
@@ -385,7 +389,7 @@ def _dc_news(m: Any) -> dict[str, Any] | None:
     }
 
 
-def _dc_research(m: Any) -> dict[str, Any] | None:
+def _dc_research(m: Any, pr: PipelineResult) -> dict[str, Any] | None:
     if not m.sleeve_stance:
         return None
     return {
@@ -398,18 +402,19 @@ def _dc_research(m: Any) -> dict[str, Any] | None:
     }
 
 
-def _dc_cio(m: Any) -> dict[str, Any] | None:
+def _dc_cio(m: Any, pr: PipelineResult) -> dict[str, Any] | None:
     if m.verdict != "HOLD":
         return None
     return {
         "claim": f"이번 주 리밸런싱 HOLD: {m.hold_reason}",
         "reasoning": m.ic_memo[:600],
         "decision": {"verdict": "HOLD"},
+        "action": "hold",
     }
 
 
 # key → (claim_type, 빌더). None 반환 시 기록 안 함.
-_DIARY: dict[str, tuple[str, Callable[[Any], dict[str, Any] | None]]] = {
+_DIARY: dict[str, tuple[str, Callable[[Any, PipelineResult], dict[str, Any] | None]]] = {
     "macro_brief": ("regime_call", _dc_macro),
     "fundamental_notes": ("exclusion", _dc_fundamental),
     "thematic_notes": ("catalyst", _dc_thematic),
@@ -425,18 +430,26 @@ def _log_diary(
     if model is None or key not in _DIARY:
         return None
     claim_type, builder = _DIARY[key]
-    kw = builder(model)
+    kw = builder(model, pr)
     if kw is None:
         return None
     reg = pr.regime.regime.value
-    sleeve = "high" if claim_type == "catalyst" else None
+    sleeve = kw.get("sleeve") or ("high" if claim_type == "catalyst" else None)
+    snap = _diary_snapshot(pr)
     entry = diary.log(
         run_id=run_id,
         agent=agent_name,
         claim_type=claim_type,
-        data_snapshot=_diary_snapshot(pr),
+        data_snapshot=snap,
         situation_text=_situation(pr),
-        tags=derive_tags(regime=reg, claim_type=claim_type, sleeve=sleeve),
+        tags=derive_tags(
+            regime=reg,
+            claim_type=claim_type,
+            sleeve=sleeve,
+            action=kw.get("action"),
+            rates_dir=pr.macro.fed_funds_trend,
+            data_snapshot=snap,
+        ),
         claim=kw["claim"],
         reasoning=kw["reasoning"],
         decision=kw["decision"],
@@ -446,15 +459,19 @@ def _log_diary(
 
 def _diary_snapshot(pr: PipelineResult) -> dict[str, float | int | str | None]:
     rg = pr.regime
-    return {
-        "regime": rg.regime.value,
-        "score_smooth": round(rg.score_smooth, 2),
-        "total_score": rg.total_score,
-        "n_axes_present": rg.n_axes_present,
-        "nav_usd": pr.nav_usd,
-        "constraints": pr.constraints.verdict,
-        **{f"target_{k}": round(v, 4) for k, v in pr.allocation.category_targets_total.items()},
-    }
+    snap: dict[str, float | int | str | None] = pr.macro.model_dump(exclude={"stale_fields"})
+    snap.update(
+        {
+            "regime": rg.regime.value,
+            "score_smooth": round(rg.score_smooth, 2),
+            "total_score": rg.total_score,
+            "n_axes_present": rg.n_axes_present,
+            "nav_usd": pr.nav_usd,
+            "constraints": pr.constraints.verdict,
+            **{f"target_{k}": round(v, 4) for k, v in pr.allocation.category_targets_total.items()},
+        }
+    )
+    return snap
 
 
 def _situation(pr: PipelineResult) -> str:
