@@ -45,7 +45,12 @@
   `status∈{reflected,gated}`, `retired`→삭제, 배치 임베딩, id 필드로 재계산 방지. 7 tests
   (`_embed` mock). 검토: [reviews/4-3.md](reviews/4-3.md) (2 rounds, 1 finding). cron:
   `evaluate && reviewer && rag`. situation 벡터는 기록시 아닌 백필시 생성 (§5.1 결정 노트).
-- [ ] **4-4 recall + 주입** — DiaryRAG.recall() (Q-D 검색, O-A 랭킹, P-D 포맷) + 에이전트 연결
+- [x] **4-4 recall + 주입** — `DiaryRAG.recall` (Q-D top-40×2 → O-A `0.65·코사인+0.20·구조+
+  0.15·최근성` → dedupe → floor 0.55·attribution 게이트 → crisis 다양성), `build_query`
+  (§6.2 결정론, LLM 없음), `format_recall` (§6.4 top-1 중간요약 + 카드). `organization`
+  이 회상 1회 계산 → ①②③⑤⑥⑦ 태스크에 주입 (④⑧ 제외), guardrail `extra_allowed` 로
+  회상 수치 통과. `schema.clip_tokens` 공용화. 8 tests. 검토: [reviews/4-4.md](reviews/4-4.md)
+  (2 rounds, 4 findings). 단일 회상(2단계는 4-6), 콜드스타트 시 임베딩 스킵.
 - [ ] **4-5 거버넌스 CLI** — `python -m aegisvest.diary review`
 - [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정
 - [ ] **4-7 (추후) O-D** — 학습형 랭킹 가중 (채점 항목 ≥ ~150)

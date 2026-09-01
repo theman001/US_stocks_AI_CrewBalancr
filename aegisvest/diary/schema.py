@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import math
 import re
 from functools import lru_cache
 from typing import Any
@@ -65,6 +66,19 @@ def _slug(text: str) -> str:
 
 def entry_id(run_id: str, agent: str, claim_type: str) -> str:
     return f"{run_id}_{_slug(agent)}_{claim_type}"
+
+
+def approx_tokens(text: str) -> int:
+    """공백어수·문자수(토큰≈2-3자) 중 큰 값 — 한글 실 토크나이저 근사. 4-6 튜닝 대상."""
+    return max(len(text.split()), math.ceil(len(text) / 3))
+
+
+def clip_tokens(text: str, limit: int) -> str:
+    """`text` 를 대략 `limit` 토큰 이내로 절삭 (lesson_card·회상 카드 공용)."""
+    text = " ".join(text.split())
+    if approx_tokens(text) <= limit:
+        return text
+    return " ".join(text[: limit * 3].split()[:limit])
 
 
 def magnitude_of(delta_pp: float, *, structural_threshold_pp: float = 20.0) -> str:

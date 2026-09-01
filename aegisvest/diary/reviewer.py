@@ -19,14 +19,13 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import re
 from typing import Any
 
 from aegisvest.config import get_settings
 from aegisvest.diary.evaluate import needs_reflection
 from aegisvest.diary.logger import load_entries, save_entries
-from aegisvest.diary.schema import diary_taxonomy
+from aegisvest.diary.schema import clip_tokens, diary_taxonomy
 from aegisvest.schemas import DiaryEntry, ReviewerOutput
 
 _log = logging.getLogger("aegisvest.diary.reviewer")
@@ -40,6 +39,11 @@ _LESSON_CARD_TOKENS = 25
 _PENDING_REVIEW_TYPES = frozenset({"regime_call", "cio_override"})
 
 
+def _cap_lesson_card(card: str) -> str:
+    """25 토큰 이내 강제 (§4.2). 근사 절삭은 diary.schema.clip_tokens 공용."""
+    return clip_tokens(card, _LESSON_CARD_TOKENS)
+
+
 def rag_status_for(entry: DiaryEntry) -> str:
     """report/phase-4 §4.3 (K). 대형 틸트·위기·레짐·CIO override → 인간 확인. 나머지 auto."""
     if entry.claim_type in _PENDING_REVIEW_TYPES:
@@ -51,19 +55,6 @@ def rag_status_for(entry: DiaryEntry) -> str:
     ):
         return "pending_review"
     return "auto"
-
-
-def _approx_tokens(text: str) -> int:
-    # ponytail: 공백어수 vs 문자/3 중 큰 값 — 한글은 토큰당 ~2-3자. 실 토크나이저는 4-6 튜닝.
-    return max(len(text.split()), math.ceil(len(text) / 3))
-
-
-def _cap_lesson_card(card: str) -> str:
-    """25 토큰 이내 강제 (§4.2). ponytail: 어수·문자수 이중 상한 근사 — 실 토크나이저는 4-6."""
-    card = " ".join(card.split())  # 공백 정규화
-    if _approx_tokens(card) <= _LESSON_CARD_TOKENS:
-        return card
-    return " ".join(card[: _LESSON_CARD_TOKENS * 3].split()[:_LESSON_CARD_TOKENS])
 
 
 def _validate(out: ReviewerOutput) -> list[str]:

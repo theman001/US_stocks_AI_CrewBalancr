@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -172,6 +173,27 @@ def _agents(llm: Any) -> dict[str, Agent]:
 # hedge_only: 툴 반환값 인용(①②③) 또는 클램프될 제안 비중 산출(⑥ PM) → 헤지 표현만 검사
 _HEDGE_ONLY_TASKS = {"macro_brief", "fundamental_notes", "thematic_notes", "pm_draft"}
 
+# 판단 일기 회상을 주입하는 태스크 (report/phase-4 §6.1 — ①②③⑤⑥⑦, ④ 뉴스·⑧ CIO 제외)
+_RECALL_TASKS = {
+    "macro_brief",
+    "fundamental_notes",
+    "thematic_notes",
+    "research_view",
+    "pm_draft",
+    "risk_review",
+}
+_DESC_NUM = re.compile(r"[-+]?\d{1,4}(?:\.\d+)?")
+
+
+def _numbers_in(text: str) -> set[str]:
+    """extra_desc(회상 카드·반려 사유)의 수치 토큰 — 결정론 생성분이라 guardrail 이 허용."""
+    out: set[str] = set()
+    for m in _DESC_NUM.finditer(text):
+        t = m.group(0).lstrip("+")
+        bare = t.lstrip("-")
+        out |= {t, f"{t}%", bare, f"{bare}%"}
+    return out
+
 
 def make_task(
     key: str,
@@ -187,13 +209,16 @@ def make_task(
     extra_desc: str = "",
 ) -> Task:
     td = tdefs[key]
+    extra_nums = _numbers_in(extra_desc) if extra_desc else None
     return Task(
         description=td["description"] + extra_desc,
         expected_output=td["expected_output"],
         agent=agents[td["agent"]],
         context=context,
         output_pydantic=_TASKS[key].model,
-        guardrail=no_fabricated_numbers(allowed, hedge_only=key in _HEDGE_ONLY_TASKS),
+        guardrail=no_fabricated_numbers(
+            allowed, extra_allowed=extra_nums, hedge_only=key in _HEDGE_ONLY_TASKS
+        ),
         callback=_callback(key, pr, run_id, diary_ids),
         async_execution=is_async,
     )
@@ -217,6 +242,7 @@ def run_analysts(
     run_id: str,
     diary_ids: list[str],
     inputs: dict[str, str],
+    diary_recall: str = "",
 ) -> AnalystBundle:
     """① Macro + ②③④ (async 병렬) → ⑤ Research Director. Process.sequential."""
 
@@ -231,6 +257,7 @@ def run_analysts(
             run_id=run_id,
             diary_ids=diary_ids,
             is_async=is_async,
+            extra_desc=f"\n\n{diary_recall}" if diary_recall and key in _RECALL_TASKS else "",
         )
 
     t_macro = mk("macro_brief", [], is_async=True)

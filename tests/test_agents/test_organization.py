@@ -9,6 +9,8 @@ import json
 
 import pytest
 
+from aegisvest.agents import crew as crew_mod
+from aegisvest.agents import organization as org_mod
 from aegisvest.agents.organization import run_organization
 from aegisvest.diary.logger import load_entries
 from aegisvest.schemas import PaperPortfolio, PipelineResult
@@ -142,6 +144,30 @@ def test_allocation_tilt_logged_when_material(pipeline_result: PipelineResult) -
     tilts = [e for e in load_entries() if e.claim_type == "allocation_tilt"]
     assert tilts and tilts[0].decision["enforced"] is True
     assert tilts[0].shadow_link.startswith("state/shadow.json#")
+
+
+def test_diary_recall_injected_into_judgment_tasks(
+    monkeypatch: pytest.MonkeyPatch, pipeline_result: PipelineResult
+) -> None:
+    """§6.1 — 회상 블록은 ①②③⑤⑥⑦ 태스크에만 (④ 뉴스·⑧ CIO 제외)."""
+    monkeypatch.setattr(org_mod, "_recall_block", lambda _pr: "## 판단 일기 SENTINEL 355")
+    seen: list[tuple[str, str]] = []
+    real = crew_mod.make_task
+
+    def spy(key: str, ctx: object, **kw: object) -> object:
+        seen.append((key, str(kw.get("extra_desc", ""))))
+        return real(key, ctx, **kw)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(crew_mod, "make_task", spy)
+    monkeypatch.setattr(org_mod, "make_task", spy)
+    run_organization(
+        pipeline_result, portfolio=_pf(), prices={"L0": 100.0, "M0": 100.0}, llm=_llm()
+    )
+    injected = {k for k, ed in seen if "SENTINEL" in ed}
+    assert {"macro_brief", "fundamental_notes", "thematic_notes", "research_view"} <= injected
+    assert {"pm_draft", "risk_review"} <= injected
+    assert "market_narrative" not in injected
+    assert "cio_decision" not in injected
 
 
 @pytest.mark.llm

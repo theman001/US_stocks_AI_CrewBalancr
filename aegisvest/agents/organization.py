@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from aegisvest.agents import quiet_crew_console
 from aegisvest.agents.crew import (
+    _RECALL_TASKS,
     _TASKS,
     AnalystBundle,
     _agents,
@@ -29,6 +30,7 @@ from aegisvest.agents.crew import (
 )
 from aegisvest.agents.pm import clamp_pm_draft
 from aegisvest.diary import logger as diary
+from aegisvest.diary.rag import DiaryRAG, build_query, format_recall
 from aegisvest.diary.schema import derive_tags, magnitude_of
 from aegisvest.pipeline import build_orders, category_usd
 from aegisvest.schemas import (
@@ -64,8 +66,11 @@ class _Ctx:
     run_id: str
     diary_ids: list[str]
     inputs: dict[str, str]
+    recall: str = ""
 
     def run(self, key: str, *, extra_desc: str = "") -> Any:
+        if self.recall and key in _RECALL_TASKS:
+            extra_desc = f"\n\n{self.recall}{extra_desc}"
         task: Task = make_task(
             key,
             [],
@@ -205,6 +210,17 @@ def _org_orders(
     return build_orders(sizing, pf, prices, plan)
 
 
+def _recall_block(pr: PipelineResult) -> str:
+    """판단 일기 유사 사례 (§6). 콜드 스타트·RAG 오류 시 빈 문자열 — 크루를 막지 않는다."""
+    try:
+        snap = _diary_snapshot(pr)
+        qtext, qtags = build_query(regime=pr.regime.regime.value, snapshot=snap)
+        return format_recall(DiaryRAG().recall(qtext, qtags))
+    except Exception as e:  # RAG 실패는 크루 중단 사유 아님
+        _log.warning("일기 회상 실패: %s", e)
+        return ""
+
+
 def run_organization(
     pr: PipelineResult,
     *,
@@ -221,6 +237,7 @@ def run_organization(
     allowed = _num_payload(pr)
     diary_ids: list[str] = []
     inputs = build_inputs(pr)
+    recall = _recall_block(pr)
 
     bundle: AnalystBundle = run_analysts(
         pr,
@@ -230,6 +247,7 @@ def run_organization(
         run_id=run_id,
         diary_ids=diary_ids,
         inputs=inputs,
+        diary_recall=recall,
     )
     inputs.update(_pm_inputs(pr, bundle.research_view.excluded_tickers))
     inputs["research_view_json"] = bundle.research_view.model_dump_json()
@@ -242,6 +260,7 @@ def run_organization(
         run_id=run_id,
         diary_ids=diary_ids,
         inputs=inputs,
+        recall=recall,
     )
     flow = _OrgFlow(ctx)
     flow.kickoff()

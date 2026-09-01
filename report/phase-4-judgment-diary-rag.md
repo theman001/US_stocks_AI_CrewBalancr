@@ -298,6 +298,20 @@ recall(query_text, situation_tags, k=4):
 - 총 ~350–450 토큰/에이전트. 전체 문단 주입 대비 ~3배 절감. **툴 호출 없음** → DeepSeek 툴콜 리스크 0.
 - 검색 시점 LLM 호출 0 (카드는 사전 생성분 이어붙이기)
 
+> **⚠️ 4-4 구현 결정 (2026-09-01) — `aegisvest/diary/rag.py` + `agents/{crew,organization}.py`.**
+> - **단일 회상, ①②③⑤⑥⑦ 공용.** §6.2 는 event/theme 를 애널리스트 출력에서 취득하나
+>   회상은 그 전(§6.1)이라 모순 → `build_query` 는 스냅샷 기반 signal·regime 태그만 사용
+>   (claim_type/sleeve 는 "현재 상황"엔 없어 제외). ①②③(매크로만) → ⑤⑥⑦(강화) 2단계
+>   회상은 4-6.
+> - **주입 = `extra_desc` append** (tasks.yaml 플레이스홀더 미사용). ④ News·⑧ CIO·⑨ Reviewer
+>   제외. 회상 블록의 수치(채점 결과 + 파이썬 lesson_card)는 `no_fabricated_numbers`
+>   `extra_allowed` 로 통과 — fabrication 이 아니라 결정론 생성분.
+> - **랭킹 순서**: Q-D(top-40×2) → O-A rank 계산 → **entry_id dedupe(max rank)** →
+>   floor(0.55)·attribution 게이트(low 는 코사인 < 0.62 제외) → crisis 다양성(|score|≥2).
+> - **`format_recall` top-1** = `[월·verdict±score·유사도]` + 원문 120토큰 절삭 (스펙 예시의
+>   상황/판단/결과/교훈 4줄 템플릿은 4-6 폴리시). `clip_tokens` 는 `diary.schema` 공용.
+> - **콜드 스타트**: 두 컬렉션 모두 비면 임베딩 없이 즉시 `[]`. RAG 오류도 크루 중단 안 함.
+
 ### 6.5 O-D 전환 경로 (추후)
 - 조건: 채점 완료 항목 ≥ ~150건 + "회상 유용성" 신호 확보 (해당 사례가 회상된 run의 shadow-B − shadow-A 델타 개선 상관)
 - 방법: `[cosine, structural, recency, attribution, claim_type_match, age]` 피처로 로지스틱 회귀 → 학습 가중이 고정 `0.65/0.20/0.15` 대체. 분기 재학습.

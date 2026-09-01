@@ -82,7 +82,9 @@ uv run pytest -x -q
 - RAG 저장 (`tests/test_diary_rag.py`, `_embed` mock + ChromaDB tmp): 이중 벡터 색인,
   gated→situation 만, pending_review 미색인, 재실행 idempotent (재임베딩 0), retired→삭제,
   배치 임베딩 1회
-- `recall()`: 유사도 < 0.55 → 무반환 (4-4)
+- recall (`tests/test_diary_rag.py`): 콜드스타트 무반환, 유사도 < 0.55 제외, attribution:low 는
+  코사인 ≥ 0.62 필요, crisis+|score|≥2 강제 다양성, `format_recall` top-1 중간요약+카드,
+  `build_query` 결정론 태그 (claim_type·sleeve 제외); 주입 위치 = ①②③⑤⑥⑦ 만 (`test_organization`)
 
 ## 통과 기준
 - 모든 테스트 green, ruff/mypy 클린
