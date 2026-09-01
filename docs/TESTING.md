@@ -41,10 +41,17 @@ uv run pytest -x -q
 - 경계값: 목표 40% vs 현재 44.0% → **밴드 정확히 4.0%p, 거래 필요** (`>=`)
 - 쿨다운: 10거래일 내 조정한 카테고리는 `cooldown_blocked`
 
-## 시나리오 5 — 현금흐름 리밸런싱 (CashFlowRebalancer)
+## 시나리오 5 — 현금흐름 리밸런싱 + 결정론 파이프라인
+### 5a CashFlowRebalancer
 - 신규 현금이 부족 카테고리를 모두 채우면 → `sell_needed=false`
 - 신규 현금 부족 + 밴드 밖 → `sell_needed=true`, `sell_orders` 존재
 - `post_action_weights` 합 + 현금 = 1.0 (±0.001)
+### 5b run_pipeline (데이터 소스만 mock, 로직은 실제)
+- 빈 포트 + 신규 현금 → 전부 매수 주문, 주문 합 ≤ 신규 현금
+- `sizing.category_weights` 합 + 현금 = 1.0, `high` ≤ 20%
+- draft 에서 빠진 보유 종목 → 전량 매도 주문
+- CRISIS 매크로 → `allocation.category_targets_total["high"] == 0`, 슬리브 50%
+- PositionSizer: 편입 수 = 예산÷하한, 저/중 균등, 고위험 ATR 역가중, 섹터캡 30% 축소
 
 ## 시나리오 6 — 파이프라인 통합 (mock LLM)
 - DeepSeek 호출을 결정적 stub(recorded) 로 교체

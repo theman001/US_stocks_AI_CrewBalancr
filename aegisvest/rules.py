@@ -166,9 +166,16 @@ class NavTier(BaseModel):
     max_positions: dict[str, int]
 
 
+class Sizing(BaseModel):
+    bands: dict[str, list[float]]  # cat → [하한, 상한] (전체 포트 소수)
+    high_atr_inverse: bool = True
+    underfill_spill_to: str = "mid"
+
+
 class AllocationRules(BaseModel):
     anchors: dict[int, list[float]]  # score → [low, mid, high, sleeve, cash] (퍼센트)
     guardrails: Guardrails
+    sizing: Sizing
     paper_max_positions: dict[str, int]
     nav_tiers: list[NavTier]
 

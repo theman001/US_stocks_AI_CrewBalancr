@@ -22,6 +22,16 @@ guardrails:
   max_change_per_rebal_pp: 10.0 # 1회 리밸런싱당 카테고리 변동 상한
   cooldown_trading_days: 10 # 동일 카테고리 조정 간격 (CRISIS 예외)
 
+# 종목 사이징 — 근거: report/phase-1 §B-3.1 (2026-09-01 확정).
+# 저·중위험 균등가중, 고위험 ATR14 역가중. 둘 다 밴드 클램프. 편입 수 = 예산÷하한.
+sizing:
+  bands: # 전체 포트 대비 종목당 [하한, 상한]
+    low: [0.03, 0.06]
+    mid: [0.03, 0.05]
+    high: [0.01, 0.025]
+  high_atr_inverse: true # 고위험만 ATR 역가중 (저/중은 균등)
+  underfill_spill_to: mid # 고위험 예산 미달분은 중위험에 가산 (현금화 아님)
+
 # 모의투자: 소수점 30종목 (전략 원형). 실제: NAV 티어 확대.
 paper_max_positions: { low: 20, mid: 15, high: 15 }
 nav_tiers:

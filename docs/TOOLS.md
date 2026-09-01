@@ -159,10 +159,21 @@ ConstraintResult { verdict: "PASS"|"FAIL", violations: [{rule, detail, value}] }
 weights_sum(≈1), max_change_per_rebal(prior 있을 때 10%p). ⑦ Risk Officer 강제 실행.
 밴드는 리밸런싱 로직(§8) 소관 — 여기선 검증 안 함.
 
-## 10. PortfolioMathTool / PositionSizer
-- **PortfolioMathTool**: 가중평균, 노출 집계, 기여도, 주문 수량 산출 — 범용 산술.
-  최종 주문의 모든 수량·비중은 여기서 계산.
-- **PositionSizer**: 카테고리 예산 내 스코어 가중 배분, 고위험 ATR 기반, 단일종목 상한.
+## 10. PositionSizer  → `size_positions(category_targets, scored, max_positions, nav_usd=0, *, sector=None, as_of=None) -> SizingResult | ToolError`
+```
+category_targets: {low, mid, high} 전체 포트 목표 비중 (소수) — allocation_targets.category_targets_total
+                  또는 rebalance.post_action_weights
+scored:  {low|mid|high: [ScoredTicker]}  스코어 내림차순
+SizingResult { positions: [SizedPosition{ticker, category, weight, target_usd, score, sector,
+  atr_pct}], category_weights: {low, mid, high, cash}, budget_shortfall: {cat: 소수}, notes[], as_of }
+```
+근거: report/phase-1 §B-3.1. 저·중위험 = 균등가중 (스코어는 상위 N 커트라인만), 고위험 = ATR14
+역가중. 둘 다 티어 밴드 [저 3~6% / 중 3~5% / 고 1~2.5%] 클램프 + 잔여 재분배. 편입 수
+`N = min(예산/하한, max_positions, 후보수)`. 고위험 미달분 → mid 스필 (config `underfill_spill_to`).
+섹터 합 > 30% → 비례 축소 (잔여 현금). 밴드·스필·캡은 `config/allocation.yaml` `sizing:`.
+
+**PortfolioMathTool** (주문 수량 산술): 3a-8 에선 `pipeline._build_orders` 가 담당 (카테고리별
+plan 금액을 gap 비율로 종목 분배). 독립 툴 분리는 필요 시 3a-9 (⑥⑦ 에이전트 재계산용).
 
 ## 11. NewsScraperTool
 ```
@@ -176,3 +187,16 @@ Output: {"headlines": [{"title": str, "source": str, "published": "YYYY-MM-DD",
 ## 12. (Phase 4) DiaryRAG
 `recall(query_text, situation_tags, k) -> list[dict]` — report/phase-4 §6.
 ChromaDB 이중 컬렉션 + bge-m3 로컬. 검색 로직 Q-D, 랭킹 O-A, 주입 포맷 P-D.
+
+## 13. run_pipeline  (결정론 코어 오케스트레이터, 툴 아님)  → `run_pipeline(*, portfolio, pending_contribution_usd=0, macro=None, regime_history=None, crisis_state=None, universe="combined", mode="paper") -> PipelineResult`
+`aegisvest/pipeline.py`. state 를 읽지도 쓰지도 않고 주문 실행도 안 함 (호출자 몫). **LLM 관여 0**.
+체인: `macro_data`(+`market_breadth` 로 breadth 축 패치) → `regime_score` → `allocation_targets`
+→ `screen`×3 → `score_category`×3 → `cash_flow_rebalance` → `size_positions`(예산 = plan
+post_action_weights) → `check_constraints` → `_build_orders`.
+```
+PipelineResult { as_of, nav_usd, regime, allocation, screen_counts, scoring{cat: ScoringResult},
+  rebalance_plan, sizing, draft, constraints, orders: [Order], prices{ticker: 소수}, notes[] }
+```
+설정 오류(allocation/rebalance/sizing ToolError)는 `RuntimeError` raise — 조용히 넘기지 않음.
+데이터 소스 실패(screen/breadth)는 `notes` 에 기록하고 계속. 3a-11 백테스트가 macro/history/
+portfolio 를 주입해 재사용.

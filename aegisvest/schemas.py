@@ -404,3 +404,46 @@ class RegimeResult(BaseModel):
     crisis_reason: str | None
     crisis_state: CrisisState = Field(description="갱신된 래치 상태 — 호출자가 persist")
     rationale: dict[str, str] = Field(description="축별 임계값 대입 설명")
+
+
+# ─────────────────────── 사이징·파이프라인 (3a-8) ───────────────────────
+
+
+class SizedPosition(BaseModel):
+    ticker: str
+    category: str  # low | mid | high (config·constraints 와 동일 소문자)
+    weight: float = Field(description="전체 포트 대비 소수")
+    target_usd: float
+    score: float
+    sector: str | None = None
+    atr_pct: float | None = Field(default=None, description="ATR14/종가 — 고위험만")
+
+
+class SizingResult(BaseModel):
+    """PositionSizer 출력 — 카테고리 예산 → 종목별 목표 비중. report/phase-1 §B-3.1."""
+
+    positions: list[SizedPosition]
+    category_weights: dict[str, float] = Field(description="low/mid/high/cash 실현 비중")
+    budget_shortfall: dict[str, float] = Field(
+        default_factory=dict, description="카테고리별 미달분 (현금화, 스필 후 잔여)"
+    )
+    notes: list[str] = Field(default_factory=list)
+    as_of: str
+
+
+class PipelineResult(BaseModel):
+    """run_pipeline() 출력 — 결정론 코어 전체 조립. 에이전트/백테스트가 소비. LLM 관여 0."""
+
+    as_of: str
+    nav_usd: float
+    regime: RegimeResult
+    allocation: AllocationTargets
+    screen_counts: dict[str, int]
+    scoring: dict[str, ScoringResult]
+    rebalance_plan: RebalancePlan
+    sizing: SizingResult
+    draft: DraftPortfolio
+    constraints: ConstraintResult
+    orders: list[Order]
+    prices: dict[str, float] = Field(description="주문 실행용 — 호출자가 PaperBroker 에 전달")
+    notes: list[str] = Field(default_factory=list)
