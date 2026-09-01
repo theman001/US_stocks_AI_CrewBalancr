@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -274,6 +275,87 @@ class ConstraintResult(BaseModel):
 
     verdict: str = Field(description="PASS | FAIL")
     violations: list[ConstraintViolation]
+
+
+# ─────────────────────── PaperBroker (3a-7) ───────────────────────
+
+
+class PaperPosition(BaseModel):
+    shares: float
+    avg_cost_usd: float
+    category: str | None = None
+    sector: str | None = None
+
+
+class Contribution(BaseModel):
+    date: str  # YYYY-MM-DD
+    krw: float
+    usd: float
+    fx_rate: float = Field(description="KRW per USD (환전 스프레드 반영 후)")
+
+
+class NavPoint(BaseModel):
+    date: str
+    nav_usd: float
+    nav_krw: float
+
+
+class PaperPortfolio(BaseModel):
+    """state/paper_portfolio.json — 모의투자 가상 원장. report/phase-3 §7.1."""
+
+    cash_usd: float = 0.0
+    positions: dict[str, PaperPosition] = Field(default_factory=dict)
+    contributions: list[Contribution] = Field(default_factory=list)
+    history: list[NavPoint] = Field(default_factory=list)
+    cooldown_days: dict[str, int] = Field(
+        default_factory=dict, description="카테고리→마지막 조정 후 경과 거래일"
+    )
+
+
+class Order(BaseModel):
+    """PaperBroker 주문. notional_usd 또는 shares 중 하나 지정."""
+
+    ticker: str
+    side: Literal["buy", "sell"]
+    notional_usd: float | None = None
+    shares: float | None = None
+    category: str | None = None
+    sector: str | None = None
+
+
+class Fill(BaseModel):
+    ticker: str
+    side: Literal["buy", "sell"]
+    shares: float
+    price_usd: float
+    commission_usd: float
+    notional_usd: float
+
+
+class ExecutionResult(BaseModel):
+    fills: list[Fill]
+    total_commission_usd: float
+    cash_after_usd: float
+    skipped: list[str] = Field(default_factory=list, description="체결가 없음/현금 부족")
+
+
+class BenchmarkState(BaseModel):
+    """state/benchmarks.json — 동일 현금흐름 벤치마크 시뮬."""
+
+    holdings: dict[str, dict[str, float]] = Field(
+        default_factory=dict, description="benchmark명 → {ticker: shares}"
+    )
+    history: dict[str, list[NavPoint]] = Field(default_factory=dict)
+
+
+class ShadowState(BaseModel):
+    """state/shadow.json — 섀도 A/B. report/phase-3 §7.3.
+
+    deterministic = 순수 결정론 코어. organization = 에이전트 틸트 반영 (3b 부터).
+    """
+
+    deterministic: PaperPortfolio = Field(default_factory=PaperPortfolio)
+    organization: PaperPortfolio = Field(default_factory=PaperPortfolio)
 
 
 # ─────────────────────── 레짐 엔진 (3a-3) ───────────────────────

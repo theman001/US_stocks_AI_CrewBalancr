@@ -12,7 +12,7 @@
 - [x] **3a-4 감시견** — `watchdog.py` (`run`/`main`) + `state.py`(JSON persistence) + `notify.py`(Mattermost). 매일 macro_data→regime_score, low_confidence 아닌 날만 history append, crisis_state persist, CRISIS→flag+알림. VIX 1일 +50% 위기조건 regime._crisis 로 통합. 14 tests. 검토: [reviews/3a-4.md](reviews/3a-4.md) (2 rounds, 2 findings). ⚠️ 3a-10: main.py 가 crisis_flag.json 읽어 크루 즉시 실행.
 - [x] **3a-5 스크리너 + 스코어링** — `screener.py` / `scoring.py` / `_screen.py` / `_derived.py` / `universe.py` / `breadth.py` + config/{filters,scoring,universe}/*. **FMP→yfinance 전면 전환** (무료 티어 종목 제한). 101 tests. 검토: [reviews/3a-5.md](reviews/3a-5.md) (2 rounds). ✅ phase-1 필터 재보정 승인됨 (2026-09).
 - [x] **3a-6 배분 + 리밸런싱** — `allocation.py`(슬라이드 보간·CRISIS 스냅·nav_tier) / `rebalance.py`(현금흐름·밴드·쿨다운·CRISIS 예외) / `constraints.py`(하드 가드레일) + `config/allocation.yaml`. 25 tests. 검토: [reviews/3a-6.md](reviews/3a-6.md) (2 rounds). 라이브: score 0 → phase-2 §2.2 예시와 정확 일치.
-- [ ] **3a-7 PaperBroker** — broker/paper, broker/benchmarks, broker/shadow — equity curve 생성
+- [x] **3a-7 PaperBroker** — `broker/paper.py`(체결·평가·환전 스프레드) / `broker/metrics.py`(TWR → CAGR·MDD·변동성·샤프·소르티노) / `broker/benchmarks.py`(SPY·60/40·ACWI 동일 현금흐름) / `broker/shadow.py`(결정론 vs 조직 A/B) + 스키마 9종. 21 tests. 검토: [reviews/3a-7.md](reviews/3a-7.md) (3 rounds, 7 findings). ⚠️ 3a-8/3a-10: NAV 평가 시 보유 티커 전부의 체결가 공급 필수 (누락 시 avg_cost 폴백만).
 - [ ] **3a-8 pipeline.py** — run_pipeline() 결정론 전체 조립 — 시나리오 6 일부
 - [ ] **3a-9 에이전트 3 + 일기 훅** — llm.py, agents/(Macro Strategist / 통합 Analyst / CIO), no_fabricated_numbers, task_callback Mattermost, diary/schema.py + diary/logger.py — 시나리오 7 (필수)
 - [ ] **3a-10 리포트 + main** — report.py, notify.py, main.py (주간 크루 전체) — 통합
