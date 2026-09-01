@@ -78,6 +78,42 @@ def _bench_prices() -> dict[str, float]:
     return out
 
 
+def _load_shadow() -> ShadowState:
+    """섀도 A/B state. 구버전 paper_portfolio.json 있으면 organization 으로 1회 이관."""
+    shadow = load_model("shadow.json", ShadowState)
+    if shadow is not None:
+        return shadow
+    old = load_model("paper_portfolio.json", PaperPortfolio)
+    if old is not None:
+        _log.info("paper_portfolio.json → shadow.json 이관 (양쪽 동일 시작)")
+        return ShadowState(deterministic=old.model_copy(deep=True), organization=old)
+    return ShadowState()
+
+
+def _execute_and_mark(
+    shadow: ShadowState,
+    bench: BenchmarkState,
+    org_orders: list[Order],
+    det_orders: list[Order],
+    prices: dict[str, float],
+    *,
+    held: bool,
+    fx: float,
+    mark_date: str,
+) -> ExecutionResult | None:
+    org_pf, det_pf = shadow.organization, shadow.deterministic
+    """조직·결정론 포트 각각 체결 후 mark-to-market (+벤치). 조직 execution 만 반환."""
+    org_exec: ExecutionResult | None = None
+    if not held and org_orders:
+        org_exec = paper.execute(org_pf, org_orders, prices)
+    if det_orders:  # 결정론 병행 시뮬은 CIO HOLD 와 무관하게 진행
+        paper.execute(det_pf, det_orders, prices)
+    paper.mark_to_market(org_pf, prices, mark_date, fx)
+    paper.mark_to_market(det_pf, prices, mark_date, fx)
+    bm.mark_to_market(bench, prices, mark_date, fx)
+    return org_exec
+
+
 def _persist_regime(history: list[RegimeHistoryPoint], regime: RegimeResult, as_of: str) -> None:
     """감시견과 동일 규칙 — crisis_state 항상, history 는 low_confidence 아닌 날만."""
     save_model("crisis_state.json", regime.crisis_state)
@@ -97,21 +133,24 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     today = dt.date.today()
     run_id = today.isoformat()
 
-    pf = load_model("paper_portfolio.json", PaperPortfolio) or PaperPortfolio()
     bench = load_model("benchmarks.json", BenchmarkState) or BenchmarkState()
-    shadow = load_model("shadow.json", ShadowState) or ShadowState()
+    shadow = _load_shadow()
+    det_pf, org_pf = shadow.deterministic, shadow.organization  # org = "실제" 모의포트
     history = load_list("regime_history.json", RegimeHistoryPoint)
     crisis_state = load_model("crisis_state.json", CrisisState) or CrisisState()
 
     fx = _fx_rate()
     contribution_usd = 0.0
-    if _contribution_due(pf, today):
-        c = paper.add_contribution(pf, s.monthly_contribution_krw, fx, run_id)
+    if _contribution_due(org_pf, today):
+        c = paper.add_contribution(org_pf, s.monthly_contribution_krw, fx, run_id)
+        paper.add_contribution(det_pf, s.monthly_contribution_krw, fx, run_id)  # 동일 현금흐름
         contribution_usd = c.usd
         bm.contribute(bench, contribution_usd, _bench_prices())
         _log.info("적금 납입 ₩%.0f → $%.2f (환율 %.1f)", c.krw, c.usd, c.fx_rate)
 
-    pr = run_pipeline(portfolio=pf, regime_history=history, crisis_state=crisis_state, mode=s.mode)
+    pr = run_pipeline(
+        portfolio=org_pf, regime_history=history, crisis_state=crisis_state, mode=s.mode
+    )
     _persist_regime(history, pr.regime, pr.as_of)
 
     crew: CrewOutcome | None = None
@@ -120,45 +159,45 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
             # 지연 import — 키 없으면 crewai(무거움) 를 안 불러온다
             from aegisvest.agents.organization import run_organization  # noqa: PLC0415
 
-            crew = run_organization(
-                pr, portfolio=pf, prices=pr.prices, pending_contribution_usd=0.0, run_id=run_id
-            )
+            crew = run_organization(pr, portfolio=org_pf, prices=pr.prices, run_id=run_id)
         except Exception:  # 크루 실패가 결정론 파이프라인·모의투자를 막지 않는다
             _log.exception("조직 크루 실행 실패 — 결정론 결과로 진행")
     else:
-        _log.info("DEEPSEEK_API_KEY 없음 — 크루 스킵, 결정론 주문만")
+        _log.info("DEEPSEEK_API_KEY 없음 — 크루 스킵, 결정론 = 조직")
 
     held = crew is not None and (crew.rebalance_held or crew.cio.verdict == "HOLD")
     use_org = crew is not None and not held and crew.cio.verdict == "APPROVED"
-    orders = (
-        crew.org_orders if (use_org and crew) else pr.orders
-    )  # 조직 승인 시 그 결과(빈 리스트여도)
-    execution: ExecutionResult | None = None
-    if held:
-        reason = crew.cio.hold_reason or "Risk 2회 REJECTED" if crew else ""
-        _log.warning("리밸런싱 보류: %s — 매매 스킵", reason)
-    elif orders:
-        execution = paper.execute(pf, orders, pr.prices)
-        _log.info(
-            "체결 %d건 (스킵 %d, %s)",
-            len(execution.fills),
-            len(execution.skipped),
-            "조직" if use_org else "결정론",
+    org_orders = crew.org_orders if (use_org and crew) else pr.orders
+
+    # ── 결정론 병행 시뮬 (섀도 A/B). 크루 없으면 org 와 동일 경로. ──
+    if crew is not None:
+        det_pr = run_pipeline(
+            portfolio=det_pf, regime_history=history, crisis_state=crisis_state, mode=s.mode
         )
+        det_orders = det_pr.orders
+    else:
+        det_orders = pr.orders
 
-    _bump_cooldown(pf, orders, held)
     all_prices = {**pr.prices, **_bench_prices()}
-    mark_date = latest_close_date(float(s.cache_ttl_hours)) or pr.as_of  # 감시견과 동일 인덱스
-    nav = paper.mark_to_market(pf, all_prices, mark_date, fx)
-    bm.mark_to_market(bench, all_prices, mark_date, fx)
-    shadow.deterministic = pf  # 3a: 조직 포트 비어있음 → deterministic = 실제 모의포트
+    execution = _execute_and_mark(
+        shadow,
+        bench,
+        org_orders,
+        det_orders,
+        all_prices,
+        held=held,
+        fx=fx,
+        mark_date=latest_close_date(float(s.cache_ttl_hours)) or pr.as_of,
+    )
+    if execution is not None:
+        _log.info("체결(조직) %d건 · %s", len(execution.fills), "조직틸트" if use_org else "결정론")
+    _bump_cooldown(org_pf, org_orders, held)
+    _bump_cooldown(det_pf, det_orders, held=False)
+    nav = org_pf.history[-1]
+    det_nav = det_pf.history[-1].nav_usd if det_pf.history else None
 
-    for name, obj in (
-        ("paper_portfolio.json", pf),
-        ("benchmarks.json", bench),
-        ("shadow.json", shadow),
-    ):
-        save_model(name, obj)
+    save_model("benchmarks.json", bench)
+    save_model("shadow.json", shadow)
 
     report_md = weekly_report_md(
         pr,
@@ -168,6 +207,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
         contribution_usd=contribution_usd,
         nav_usd=nav.nav_usd,
         nav_krw=nav.nav_krw,
+        det_nav_usd=det_nav,
     )
     report_path = write_run(run_id, pr, crew, execution, report_md)
     post(

@@ -45,14 +45,21 @@ def weekly_report_md(
     contribution_usd: float,
     nav_usd: float,
     nav_krw: float,
+    det_nav_usd: float | None = None,
 ) -> str:
     rg = pr.regime
+    shadow_line = (
+        f" · 결정론 병행 ${det_nav_usd:,.2f} (조직 {(nav_usd / det_nav_usd - 1) * 100:+.2f}%)"
+        if det_nav_usd and det_nav_usd > 0 and abs(det_nav_usd - nav_usd) > 0.01
+        else ""
+    )
     lines = [
         f"# 주간 리포트 — {pr.as_of}",
         "",
         f"- **레짐**: {rg.regime.value} (score {rg.total_score}, smooth {rg.score_smooth:.1f})"
         + (" · 🆘 CRISIS" if rg.crisis_active else ""),
         f"- **NAV**: ${nav_usd:,.2f} / ₩{nav_krw:,.0f}"
+        + shadow_line
         + (f"  (이번 납입 ${contribution_usd:,.2f})" if contribution_usd else ""),
         f"- **제약 검증**: {pr.constraints.verdict}",
         f"- **의사결정**: {'⛔ HOLD (매매 보류)' if held else '✅ 실행'}"
@@ -163,13 +170,20 @@ def write_run(
 # ─────────────────────── 성과 조회 ───────────────────────
 
 
+def _load_org_pf() -> PaperPortfolio | None:
+    shadow = load_model("shadow.json", ShadowState)
+    if shadow is not None and shadow.organization.history:
+        return shadow.organization
+    return load_model("paper_portfolio.json", PaperPortfolio)  # 구버전 폴백
+
+
 def performance_report_md() -> str:
-    pf = load_model("paper_portfolio.json", PaperPortfolio)
+    pf = _load_org_pf()
     if pf is None or not pf.history:
         return "성과 데이터 없음 (모의투자 미시작)."
     strat = performance_stats(pf.history, pf.contributions)
     lines = [
-        "# 성과 리포트",
+        "# 성과 리포트 (조직 포트)",
         "",
         f"- 관측일수 {strat['n_days']} · 총수익률 {_fmt_pct(strat['total_return'])}",
         f"- CAGR {_fmt_pct(strat['cagr'])} · MDD {_fmt_pct(strat['mdd'])}"
@@ -192,10 +206,26 @@ def performance_report_md() -> str:
     shadow = load_model("shadow.json", ShadowState)
     if shadow is not None:
         d = delta_report(shadow)
-        lines += ["", "## 섀도 A/B (결정론 vs 조직)", f"- 판정: {d['verdict']}"]
-        if d.get("org_minus_det_pct") is not None:
-            lines.append(f"- 조직 vs 결정론: {_fmt_pct(d['org_minus_det_pct'])}")
+        det_s, org_s = d["deterministic"], d["organization"]
+        delta = (
+            f" (조직 vs 결정론 {_fmt_pct(d['org_minus_det_pct'])})"
+            if d.get("org_minus_det_pct") is not None
+            else ""
+        )
+        lines += [
+            "",
+            "## 섀도 A/B (결정론 코어 vs 조직 틸트)",
+            f"- 판정: **{d['verdict']}**{delta}",
+            f"- 결정론: 총수익 {_fmt_pct(_g(det_s, 'total_return'))}"
+            f" · MDD {_fmt_pct(_g(det_s, 'mdd'))} · 샤프 {_fmt(_g(det_s, 'sharpe'))}",
+            f"- 조직: 총수익 {_fmt_pct(_g(org_s, 'total_return'))}"
+            f" · MDD {_fmt_pct(_g(org_s, 'mdd'))} · 샤프 {_fmt(_g(org_s, 'sharpe'))}",
+        ]
     return "\n".join(lines) + "\n"
+
+
+def _g(stats: object, key: str) -> Any:
+    return stats.get(key) if isinstance(stats, dict) else None
 
 
 def _fmt(x: Any) -> str:

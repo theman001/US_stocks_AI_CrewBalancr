@@ -20,6 +20,7 @@ from aegisvest.schemas import (
     PaperPortfolio,
     RegimeHistoryPoint,
     ResearchView,
+    ShadowState,
     ThematicNotes,
 )
 from tests.fixtures.pipeline import make_pipeline_result, market_data_stub
@@ -63,8 +64,11 @@ def test_first_run_contributes_and_executes(monkeypatch: pytest.MonkeyPatch) -> 
     assert res.contribution_usd > 0  # 첫 실행 → 적금 납입
     assert res.n_fills >= 1
     assert res.crew_ran is False  # 개발환경 DEEPSEEK 키 없음
-    pf = state.load_model("paper_portfolio.json", PaperPortfolio)
-    assert pf is not None and pf.history and pf.positions
+    shadow = state.load_model("shadow.json", ShadowState)
+    assert shadow is not None
+    assert shadow.organization.history and shadow.organization.positions
+    # 크루 없음 → 결정론 = 조직 (동일)
+    assert shadow.deterministic.positions.keys() == shadow.organization.positions.keys()
 
 
 def test_second_run_same_month_no_double_contribution(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,6 +89,26 @@ def test_cio_hold_skips_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res.cio_verdict == "HOLD"
     # 납입은 HOLD 여도 발생 (실제 입금)
     assert res.contribution_usd > 0
+    # 결정론 병행 시뮬은 HOLD 무관하게 진행 → 포지션 보유
+    shadow = state.load_model("shadow.json", ShadowState)
+    assert shadow is not None and shadow.deterministic.positions
+
+
+def test_shadow_ab_diverges_with_crew(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    main.get_settings.cache_clear()
+    monkeypatch.setattr(main, "run_pipeline", _pipeline)
+    # 조직은 M0 만 매수 (결정론은 L0)
+    org = _crew(
+        "APPROVED", org_orders=[Order(ticker="M0", side="buy", notional_usd=20.0, category="mid")]
+    )
+    monkeypatch.setattr(org_mod, "run_organization", lambda pr, **kw: org)
+    main.run()
+    shadow = state.load_model("shadow.json", ShadowState)
+    assert shadow is not None
+    assert "M0" in shadow.organization.positions  # 조직 = M0
+    assert "L0" in shadow.deterministic.positions  # 결정론 = L0
+    assert shadow.organization.positions != shadow.deterministic.positions
 
 
 def test_crisis_trigger_run(monkeypatch: pytest.MonkeyPatch) -> None:

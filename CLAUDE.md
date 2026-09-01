@@ -14,8 +14,9 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-`3b-3 섀도 틸트 측정` (조직 on/off NAV 병행 리포트). 3a 코어 완료, 3a-11 보류,
-3b-1(애널리스트 6분할)·3b-2(PM+Risk+Flow 반려) 완료. `docs/BUILD_PLAN.md` 참조.
+**Phase 3 완료** (3a 코어, 3a-11 보류, 3b 조직 완편). 다음: Phase 4 (판단 일기 RAG,
+모의투자 ~3개월 데이터 후) 또는 배포(OMV8 docker-compose). `docs/BUILD_PLAN.md` 참조.
+포트 상태는 `state/shadow.json` (organization = 실제, deterministic = 병행 시뮬).
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 1.15 설치됨 (`uv sync --extra agents`). `docker` 는 이 개발환경에 없음.
 DeepSeek 키는 `.env` 에 있으나 **계정 잔액 부족** — 실 크루 미검증, mock(ScriptedLLM) 로 테스트.

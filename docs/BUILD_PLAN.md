@@ -22,7 +22,7 @@
 
 - [x] **3b-1 애널리스트 분할** — 통합 Analyst → ② Fundamental / ③ Thematic / ④ News 분리 + ⑤ Research Director. `agents/tools.py`(crewai 툴 래퍼 3종), `crew.py` 재작성 (① + ②③④ async → ⑤ → ⑧), `guardrails.hedge_only`(툴 쓰는 에이전트용). schemas: FundamentalNotes/ThematicNotes/MarketNarrative/ResearchView. diary claim_type +catalyst/event_risk/sleeve_stance. 22 tests. 검토: [reviews/3b-1.md](reviews/3b-1.md) (3 rounds, 2 findings). 실 DeepSeek 미검증 (잔액).
 - [x] **3b-2 의사결정 계층** — `agents/organization.py`(`run_organization`: 애널리스트 크루 → `_OrgFlow` crewai.Flow @router 반려 1회 → CIO) + `agents/pm.py`(`clamp_pm_draft` 하드 클램프: ±3%p·풀·제외·밴드·캡). PM 이 draft 직접 제안(사용자 결정), 파이썬 클램프. `pipeline.build_orders`/`category_usd` 공개. main 이 org_orders 체결. 12 tests. 검토: [reviews/3b-2.md](reviews/3b-2.md) (2 rounds, 4 findings — 틸트 기준·예산 초과·카테고리 제거·빈 주문). 실 DeepSeek 미검증.
-- [ ] **3b-3 섀도 틸트 측정** — 조직 on/off NAV 병행 리포트
+- [x] **3b-3 섀도 틸트 측정** — `main.py` 가 `ShadowState`(deterministic + organization) 이중 포트 병행 시뮬 (동일 현금흐름, 조직 = 실제). `_execute_and_mark` 양쪽 체결·마크, 조직 있으면 결정론 `run_pipeline` 2차 실행. `watchdog._mark_nav` 양쪽 마크. `report` 섀도 A/B 상세(총수익·MDD·샤프 대비). `paper_portfolio.json` → `shadow.json` (1회 이관). 검토: [reviews/3b-3.md](reviews/3b-3.md) (2 rounds, 1 finding). 라이브: 이중 포트 정상.
 
 ## Phase 4 — 판단 일기 RAG (모의투자 ~3개월 데이터 후)
 

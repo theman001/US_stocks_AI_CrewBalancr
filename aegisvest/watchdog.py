@@ -19,9 +19,9 @@ from aegisvest.schemas import (
     BenchmarkState,
     CrisisFlag,
     CrisisState,
-    PaperPortfolio,
     RegimeHistoryPoint,
     RegimeResult,
+    ShadowState,
     ToolError,
 )
 from aegisvest.state import load_list, load_model, save_list, save_model
@@ -79,22 +79,28 @@ def _trigger_weekly_crew() -> None:
 
 
 def _mark_nav(fallback_date: str) -> None:
-    """모의 포트·벤치마크 일일 mark-to-market. 포트가 없으면(모의투자 미시작) 아무것도 안 함."""
-    pf = load_model("paper_portfolio.json", PaperPortfolio)
-    if pf is None or (not pf.positions and pf.cash_usd <= 0):
+    """섀도 양쪽 포트·벤치마크 일일 mark-to-market. 모의투자 미시작이면 아무것도 안 함."""
+    shadow = load_model("shadow.json", ShadowState)
+    if shadow is None:
+        return
+    pfs = [shadow.deterministic, shadow.organization]
+    if all(not p.positions and p.cash_usd <= 0 for p in pfs):
         return
     as_of = _trading_day(fallback_date)
-    if pf.history and pf.history[-1].date >= as_of:
+    ref = shadow.organization
+    if ref.history and ref.history[-1].date >= as_of:
         return  # 이미 이 거래일 마감 반영 (주말·중복 실행)
     fx = usd_krw()
     fx_rate = fx if not isinstance(fx, ToolError) else 1400.0
+    held = {t for p in pfs for t in p.positions}
     prices: dict[str, float] = {}
-    for t in [*pf.positions, *bm.BENCH_TICKERS]:
+    for t in [*held, *bm.BENCH_TICKERS]:
         md = market_data(t)
         if not isinstance(md, ToolError) and md.last_price > 0:
             prices[t] = md.last_price
-    paper.mark_to_market(pf, prices, as_of, fx_rate)
-    save_model("paper_portfolio.json", pf)
+    for p in pfs:
+        paper.mark_to_market(p, prices, as_of, fx_rate)
+    save_model("shadow.json", shadow)
     bench = load_model("benchmarks.json", BenchmarkState)
     if bench is not None:
         bm.mark_to_market(bench, prices, as_of, fx_rate)

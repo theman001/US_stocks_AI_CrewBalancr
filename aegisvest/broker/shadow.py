@@ -31,10 +31,10 @@ def delta_report(shadow: ShadowState) -> dict[str, object]:
         "deterministic": det_stats,
         "organization": org_stats,
         "verdict": (
-            "org_helps"
-            if nav_delta_pct is not None and nav_delta_pct > 0
+            "insufficient_data"
+            if nav_delta_pct is None or abs(nav_delta_pct) < 1e-4  # 동일(크루 미실행) 포함
+            else "org_helps"
+            if nav_delta_pct > 0
             else "org_neutral_or_harmful"
-            if nav_delta_pct is not None
-            else "insufficient_data"
         ),
     }
