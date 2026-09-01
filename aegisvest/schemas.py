@@ -94,12 +94,14 @@ class Fundamentals(BaseModel):
     gross_margin: float | None
     op_margin_trend_3y: str | None = Field(description="rising | flat | falling")
     rev_cagr_3y: float | None
+    rev_growth_yoy: float | None = Field(description="최근 회계연도 매출 성장률 (소수)")
     eps_growth_fwd: float | None
     eps_revision_3m: str | None = Field(description="up | flat | down")
     fcf_ttm_usd: float | None
     fcf_payout: float | None
     eps_payout: float | None
     net_debt_ebitda: float | None
+    debt_to_equity: float | None = Field(default=None, description="부채/자기자본 (소수)")
     interest_coverage: float | None
     div_streak_years: int | None
     dgr_5y: float | None
@@ -163,6 +165,51 @@ class NewsResult(BaseModel):
     scope: str = Field(description="macro | ticker")
     ticker: str | None
     headlines: list[NewsItem]
+    as_of: str
+
+
+# ─────────────────────── 스크리너 (3a-5) ───────────────────────
+
+
+class FilterCheck(BaseModel):
+    """하드 필터 하나의 평가 결과."""
+
+    result: str = Field(description="pass | fail | skip")
+    value: float | str | None = None
+
+
+class ScreenedTicker(BaseModel):
+    ticker: str
+    passed: bool
+    checks: dict[str, FilterCheck]
+    subtier: str | None = None  # 스크리너 단계에선 None, ScoringCalculator 가 채움
+
+
+class ScreenResult(BaseModel):
+    """ScreenerTool 출력. docs/TOOLS.md §6."""
+
+    category: str
+    passed: list[ScreenedTicker]
+    failed_count: int
+    evaluated_count: int
+    errored: list[str] = Field(default_factory=list, description="데이터 조회 실패 티커")
+    as_of: str
+
+
+class ScoredTicker(BaseModel):
+    ticker: str
+    score: float = Field(description="0~100 가중 종합 점수")
+    rank: int
+    subtier: str | None
+    component_scores: dict[str, float]
+
+
+class ScoringResult(BaseModel):
+    """ScoringCalculator 출력. docs/TOOLS.md §7."""
+
+    category: str
+    scores: list[ScoredTicker]  # score 내림차순
+    errored: list[str] = Field(default_factory=list)
     as_of: str
 
 

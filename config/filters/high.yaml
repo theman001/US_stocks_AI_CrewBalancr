@@ -1,0 +1,13 @@
+# 🔴 고위험 하드 필터 — 근거: report/phase-1-conception.md 과제 A
+# rs_vs_spx_6m 상위 30% 는 스크리너가 후보군 내 percentile 로 별도 적용 (config 아님).
+# 테마 태그는 Thematic Analyst(3b) 소관 — 스크리너는 모멘텀·성장만.
+category: HIGH
+hard_filters:
+  - { field: market_cap_usd, op: ">=", value: 2000000000 }
+  - { field: adv_20d_usd, op: ">=", value: 30000000 }
+  - { field: rev_growth_yoy, op: ">=", value: 0.30, optional: true, note: "pre-revenue 는 Thematic" }
+  - { field: last_price, op: ">", ref: sma_200 }
+  - { field: sma_50, op: ">", ref: sma_200 }
+  - { field: mom_12_1, op: ">", value: 0.0 }
+  - { field: rsi_14, op: between, value: [45.0, 78.0] }
+  - { field: vol_ratio_latest, op: ">=", value: 0.8, note: "거래량 위축 아님" }

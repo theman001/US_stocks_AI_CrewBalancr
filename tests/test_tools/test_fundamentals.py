@@ -1,143 +1,115 @@
-"""fundamentals.py — TEST_GUIDE 시나리오 1 (mock FMP stable API)."""
+"""fundamentals.py — TEST_GUIDE 시나리오 1 (mock yfinance 번들)."""
 
 from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 import pytest
 
 from aegisvest.schemas import Fundamentals, ToolError
 from aegisvest.tools import fundamentals as fun
 
-_PROFILE = [
-    {"symbol": "AAPL", "price": 190.0, "marketCap": 3.0e12, "beta": 1.2, "sector": "Technology"}
-]
-_RT = [
-    {
-        "priceToEarningsRatioTTM": 30.0,
-        "grossProfitMarginTTM": 0.45,
-        "dividendPayoutRatioTTM": 0.15,
-        "interestCoverageRatioTTM": 40.0,
-        "dividendYieldTTM": 0.005,
-    }
-]
-_KM = [
-    {
-        "marketCap": 3.0e12,
-        "evToEBITDATTM": 22.0,
-        "returnOnInvestedCapitalTTM": 0.55,
-        "returnOnEquityTTM": 1.5,
-        "netDebtToEBITDATTM": 0.4,
-    }
-]
-_INCOME = [
-    {
-        "date": "2025-09-30",
-        "revenue": 400.0,
-        "eps": 6.5,
-        "operatingIncome": 120.0,
-        "netIncome": 100.0,
-        "grossProfit": 180.0,
-        "weightedAverageShsOutDil": 15.0,
-        "interestExpense": 3.0,
-    },
-    {
-        "date": "2024-09-30",
-        "revenue": 380.0,
-        "eps": 6.0,
-        "operatingIncome": 110.0,
-        "netIncome": 95.0,
-        "grossProfit": 168.0,
-        "weightedAverageShsOutDil": 15.5,
-        "interestExpense": 3.0,
-    },
-    {
-        "date": "2023-09-30",
-        "revenue": 360.0,
-        "eps": 5.5,
-        "operatingIncome": 100.0,
-        "netIncome": 88.0,
-        "grossProfit": 155.0,
-        "weightedAverageShsOutDil": 16.0,
-        "interestExpense": 3.0,
-    },
-    {
-        "date": "2022-09-30",
-        "revenue": 330.0,
-        "eps": 5.0,
-        "operatingIncome": 90.0,
-        "netIncome": 80.0,
-        "grossProfit": 140.0,
-        "weightedAverageShsOutDil": 16.5,
-        "interestExpense": 3.0,
-    },
-]
-_BALANCE = [
-    {
-        "totalAssets": 350.0,
-        "totalLiabilities": 280.0,
-        "totalCurrentAssets": 130.0,
-        "totalCurrentLiabilities": 140.0,
-        "longTermDebt": 90.0,
-        "retainedEarnings": 5.0,
-        "totalStockholdersEquity": 62.0,
-    },
-    {
-        "totalAssets": 340.0,
-        "totalLiabilities": 275.0,
-        "totalCurrentAssets": 128.0,
-        "totalCurrentLiabilities": 150.0,
-        "longTermDebt": 95.0,
-        "retainedEarnings": 4.0,
-        "totalStockholdersEquity": 60.0,
-    },
-]
-_CASHFLOW = [
-    {"freeCashFlow": 95.0, "operatingCashFlow": 110.0, "netDividendsPaid": -15.0},
-    {"freeCashFlow": 90.0, "operatingCashFlow": 105.0, "netDividendsPaid": -14.0},
-]
-_RATIOS_ANNUAL = [
-    {"priceToEarningsRatio": 28.0, "dividendYield": 0.006},
-    {"priceToEarningsRatio": 26.0, "dividendYield": 0.006},
-    {"priceToEarningsRatio": 24.0, "dividendYield": 0.007},
-]
-_ESTIMATES = [{"date": "2027-09-30", "epsAvg": 7.2}, {"date": "2026-09-30", "epsAvg": 7.0}]
-_DIVIDENDS = [
-    {"date": f"{y}-05-01", "adjDividend": d}
-    for y, d in [
-        (2018, 0.68),
-        (2019, 0.75),
-        (2020, 0.80),
-        (2021, 0.85),
-        (2022, 0.90),
-        (2023, 0.95),
-        (2024, 1.00),
-        (2025, 1.05),
-        (2026, 1.10),
-    ]
-]
+_COLS = pd.to_datetime(["2025-09-30", "2024-09-30", "2023-09-30", "2022-09-30", "2021-09-30"])
 
-_ALL = {
-    "profile": _PROFILE,
-    "ratios-ttm": _RT,
-    "key-metrics-ttm": _KM,
-    "income-statement": _INCOME,
-    "balance-sheet-statement": _BALANCE,
-    "cash-flow-statement": _CASHFLOW,
-    "ratios": _RATIOS_ANNUAL,
-    "analyst-estimates": _ESTIMATES,
-    "dividends": _DIVIDENDS,
+_INFO: dict[str, Any] = {
+    "marketCap": 3.0e12,
+    "trailingPE": 30.0,
+    "forwardPE": 26.0,
+    "forwardEps": 7.0,
+    "trailingEps": 6.5,
+    "beta": 1.2,
+    "dividendYield": 0.55,  # 퍼센트 → 0.0055
+    "fiveYearAvgDividendYield": 0.60,
+    "payoutRatio": 0.15,
+    "returnOnEquity": 1.5,
+    "grossMargins": 0.45,
+    "debtToEquity": 45.0,  # 퍼센트 → 0.45
+    "freeCashflow": 95.0,
+    "revenueGrowth": 0.10,
+    "pegRatio": 1.8,
+    "enterpriseToEbitda": 22.0,
+    "sector": "Technology",
+}
+_BALANCE = pd.DataFrame(
+    {
+        _COLS[0]: [350, 280, 130, 120, 90, 5, 62, 40],
+        _COLS[1]: [340, 275, 128, 125, 95, 4, 60, 45],
+        _COLS[2]: [330, 270, 125, 128, 100, 3, 58, 50],
+        _COLS[3]: [320, 268, 122, 130, 105, 2, 55, 55],
+        _COLS[4]: [310, 265, 120, 132, 110, 1, 52, 60],
+    },
+    index=[
+        "Total Assets",
+        "Total Liabilities Net Minority Interest",
+        "Current Assets",
+        "Current Liabilities",
+        "Long Term Debt",
+        "Retained Earnings",
+        "Stockholders Equity",
+        "Net Debt",
+    ],
+)
+_INCOME = pd.DataFrame(
+    {
+        _COLS[0]: [400, 180, 120, 120, 100, 6.5, 15.0, 3.0, 140],
+        _COLS[1]: [380, 168, 110, 110, 95, 6.0, 15.5, 3.0, 130],
+        _COLS[2]: [360, 155, 100, 100, 88, 5.5, 16.0, 3.0, 120],
+        _COLS[3]: [330, 140, 90, 90, 80, 5.0, 16.5, 3.0, 108],
+        _COLS[4]: [300, 125, 78, 78, 70, 4.5, 17.0, 3.0, 95],
+    },
+    index=[
+        "Total Revenue",
+        "Gross Profit",
+        "EBIT",
+        "Operating Income",
+        "Net Income",
+        "Diluted EPS",
+        "Diluted Average Shares",
+        "Interest Expense",
+        "EBITDA",
+    ],
+)
+_CASHFLOW = pd.DataFrame(
+    {
+        _COLS[0]: [95, 110, -15],
+        _COLS[1]: [90, 105, -14],
+        _COLS[2]: [85, 100, -13],
+        _COLS[3]: [80, 95, -12],
+        _COLS[4]: [70, 85, -11],
+    },
+    index=["Free Cash Flow", "Operating Cash Flow", "Cash Dividends Paid"],
+)
+_DIVS = pd.Series(
+    [0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15],
+    index=pd.to_datetime(
+        [
+            "2019-05-01",
+            "2020-05-01",
+            "2021-05-01",
+            "2022-05-01",
+            "2023-05-01",
+            "2024-05-01",
+            "2025-05-01",
+        ]
+    ),
+)
+_BUNDLE: dict[str, Any] = {
+    "info": _INFO,
+    "balance": _BALANCE,
+    "income": _INCOME,
+    "cashflow": _CASHFLOW,
+    "dividends": _DIVS,
 }
 
 
 @pytest.fixture
-def _mock_fmp(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FMP_API_KEY", "test-key")
-    fun.get_settings.cache_clear()
-    monkeypatch.setattr(fun, "_get", lambda ep, key, **kw: _ALL.get(ep, []))
+def _mock_yf(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fun, "_yf_bundle", lambda ticker, ttl: _BUNDLE)
+    monkeypatch.setattr(fun, "history", lambda *a, **k: pd.DataFrame())  # pe_5y_median → None
 
 
-@pytest.mark.usefixtures("_mock_fmp")
+@pytest.mark.usefixtures("_mock_yf")
 def test_schema_and_derived() -> None:
     r = fun.fundamentals("aapl")
     assert isinstance(r, Fundamentals)
@@ -146,48 +118,53 @@ def test_schema_and_derived() -> None:
     assert r.market_cap_usd == 3.0e12
     assert r.sector == "Technology"
     assert r.pe_ttm == 30.0
-    assert r.pe_5y_median == 26.0
-    assert r.eps_growth_fwd == pytest.approx(7.0 / 6.5 - 1.0)  # 가장 가까운 미래 FY
-    assert r.pe_forward == pytest.approx(190.0 / 7.0)
+    assert r.div_yield == pytest.approx(0.0055)
+    assert r.div_yield_5y_median == pytest.approx(0.0060)
+    assert r.debt_to_equity == pytest.approx(0.45)
+    assert r.eps_growth_fwd == pytest.approx(7.0 / 6.5 - 1.0)
     assert r.op_margin_trend_3y == "rising"
     assert r.roe_5y_avg is not None and r.roe_5y_avg > 0
-    assert r.div_streak_years == 7  # 2018→2025 (2026 불완전 제외), 매년 증가
-    assert r.dgr_5y == pytest.approx((1.05 / 0.80) ** (1 / 5) - 1.0)  # 2025 vs 2020
+    assert r.roic is not None and r.roic > 0
+    assert r.interest_coverage == pytest.approx(120.0 / 3.0)  # EBIT / 이자비용
+    assert r.net_debt_ebitda == pytest.approx(40.0 / 140.0)
+    assert r.div_streak_years == 6  # 2019→2025 매년 증가 (2026 미도래)
+    assert r.dgr_5y == pytest.approx((1.15 / 0.90) ** (1 / 5) - 1.0)
     assert r.piotroski_f is not None and 0 <= r.piotroski_f <= 9
     assert r.altman_z is not None
     assert r.fcf_payout == pytest.approx(15.0 / 95.0)
-    assert r.eps_positive_years_10 == 4
+    assert r.eps_positive_years_10 == 5
 
 
-def test_no_key() -> None:
-    r = fun.fundamentals("AAPL")
+def test_empty_ticker() -> None:
+    r = fun.fundamentals("  ")
     assert isinstance(r, ToolError)
-    assert r.field == "FMP_API_KEY"
+    assert r.field == "ticker"
 
 
-@pytest.mark.usefixtures("_mock_fmp")
-def test_unknown_ticker(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(fun, "_get", lambda *a, **k: [])
+@pytest.mark.usefixtures("_mock_yf")
+def test_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        fun,
+        "_yf_bundle",
+        lambda t, ttl: {
+            "info": {},
+            "balance": pd.DataFrame(),
+            "income": pd.DataFrame(),
+            "cashflow": pd.DataFrame(),
+            "dividends": pd.Series(dtype=float),
+        },
+    )
     r = fun.fundamentals("ZZZZ")
     assert isinstance(r, ToolError)
     assert r.field == "ticker"
 
 
-@pytest.mark.usefixtures("_mock_fmp")
+@pytest.mark.usefixtures("_mock_yf")
 def test_network_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_a: object, **_k: object) -> Any:
         raise ConnectionError("down")
 
-    monkeypatch.setattr(fun, "_get", boom)
+    monkeypatch.setattr(fun, "_yf_bundle", boom)
     r = fun.fundamentals("AAPL")
     assert isinstance(r, ToolError)
     assert r.field == "network"
-
-
-@pytest.mark.usefixtures("_mock_fmp")
-def test_interest_coverage_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    patched = {**_ALL, "ratios-ttm": [{**_RT[0], "interestCoverageRatioTTM": 0.0}]}
-    monkeypatch.setattr(fun, "_get", lambda ep, key, **kw: patched.get(ep, []))
-    r = fun.fundamentals("AAPL")
-    assert isinstance(r, Fundamentals)
-    assert r.interest_coverage == pytest.approx(120.0 / 3.0)  # EBIT / 이자비용

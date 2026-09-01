@@ -1,0 +1,35 @@
+# 🟢 저위험 스코어링 — 근거: report/phase-1-conception.md 과제 A
+# 각 metric 을 후보군 내 percentile rank 로 정규화, direction(+1 높을수록 좋음 / -1 낮을수록)
+# 적용 후 component 평균. 총점 = Σ(weight × component) × 100.
+# 파생 metric: pe_vs_5y_median, div_yield_vs_5y (scoring.py 가 계산해 주입)
+category: LOW
+max_positions: 20
+components:
+  - name: valuation
+    weight: 0.35
+    metrics: [pe_vs_5y_median, ev_ebitda, div_yield_vs_5y]
+    directions: [-1, -1, 1]
+  - name: dividend_quality
+    weight: 0.30
+    metrics: [dgr_5y, eps_payout, fcf_payout]
+    directions: [1, -1, -1]
+  - name: profitability
+    weight: 0.25
+    metrics: [roe_5y_avg, roic]
+    directions: [1, 1]
+  - name: safety
+    weight: 0.10
+    metrics: [piotroski_f, altman_z, debt_to_equity]
+    directions: [1, 1, -1]
+subtiers:
+  - name: LOW-A 배당귀족 코어
+    filters:
+      - { field: div_streak_years, op: ">=", value: 25 }
+      - { field: beta_60m, op: "<=", value: 0.9 }
+  - name: LOW-B 퀄리티 컴파운더
+    filters:
+      - { field: roic, op: ">=", value: 0.15 }
+      - { field: dgr_5y, op: ">=", value: 0.08 }
+  - name: LOW-C 디펜시브 밸류
+    filters:
+      - { field: sector, op: in, value: [Consumer Defensive, Utilities, Healthcare] }

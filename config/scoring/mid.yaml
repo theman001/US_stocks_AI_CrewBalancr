@@ -1,0 +1,31 @@
+# 🟡 중위험 스코어링 — 근거: report/phase-1-conception.md 과제 A
+category: MID
+max_positions: 15
+components:
+  - name: growth_quality
+    weight: 0.35
+    metrics: [rev_cagr_3y, eps_growth_fwd, rev_growth_yoy]
+    directions: [1, 1, 1]
+  - name: valuation_discipline
+    weight: 0.30
+    metrics: [peg_forward, pe_forward, ev_ebitda]
+    directions: [-1, -1, -1]
+  - name: capital_efficiency
+    weight: 0.25
+    metrics: [roic, gross_margin, rule_of_40]
+    directions: [1, 1, 1]
+  - name: financial_strength
+    weight: 0.10
+    metrics: [interest_coverage, net_debt_ebitda]
+    directions: [1, -1]
+subtiers:
+  - name: MID-A GARP 코어
+    filters:
+      - { field: peg_forward, op: "<", value: 1.3 }
+      - { field: roe_5y_avg, op: ">", value: 0.18 }
+  - name: MID-B 빅테크 GARP
+    filters:
+      - { field: market_cap_usd, op: ">=", value: 500000000000 }
+  - name: MID-C 사이클리컬 성장
+    filters:
+      - { field: sector, op: in, value: [Industrials, Technology, Basic Materials, Energy] }

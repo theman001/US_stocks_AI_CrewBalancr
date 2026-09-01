@@ -1,0 +1,19 @@
+# 🟡 중위험 하드 필터 — 근거: report/phase-1-conception.md 과제 A
+#
+# ⚠️ 재보정 (라이브 검증 3a-5):
+#  - beta_60m: phase-1 [0.9, 1.4] 이나 V/MA 등 실측 0.75~0.9 → 하한 0.70
+#  - rule_of_40: "소프트웨어 한정" 이라 하드 필터에서 제외 → ScoringCalculator 소관
+category: MID
+hard_filters:
+  - { field: market_cap_usd, op: ">=", value: 20000000000 }
+  - { field: rev_cagr_3y, op: between, value: [0.10, 0.30] }
+  - { field: eps_growth_fwd, op: ">=", value: 0.12 }
+  - { field: peg_forward, op: between, value: [0.8, 2.0] }
+  - { field: roe_5y_avg, op: ">=", value: 0.15 }
+  - { field: roic, op: ">=", value: 0.12 }
+  - { field: gross_margin, op: ">=", value: 0.40 }
+  - { field: op_margin_trend_3y, op: ne, value: falling }
+  - { field: fcf_ttm_usd, op: ">", value: 0 }
+  - { field: net_debt_ebitda, op: "<=", value: 2.5 }
+  - { field: beta_60m, op: between, value: [0.70, 1.4] } # phase-1: [0.9, 1.4]
+  - { field: eps_revision_3m, op: ne, value: down, optional: true, note: "추정치 히스토리 소스 없음 — 3b" }

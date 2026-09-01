@@ -1,0 +1,26 @@
+# 🟢 저위험 하드 필터 — 근거: report/phase-1-conception.md 과제 A
+# op: ">="|"<="|">"|"<"|"between"(value=[lo,hi])|"in"|"ne"  / ref: 다른 필드와 비교
+# optional: true 면 데이터 없을 때 통과, false(기본) 면 탈락
+#
+# ⚠️ phase-1 대비 재보정 (라이브 검증 3a-5, 2026-09) — 사용자 승인 대기:
+#   beta_60m 하한  0.6  → 0.15   (JNJ 실측 β 0.21, 우량 방어주가 초저베타)
+#   dgr_5y        0.05 → 0.03   (CL/KMB 배당성장률 3.3%)
+#   eps_payout 상한 0.65 → 0.75   (성숙 배당주 페이아웃 통상 60~75%)
+#   fcf_payout    0.75 → 0.85   (PG 0.77 — 과분배 아님)
+#   eps_positive_years 10 → 4    (yfinance 무료 4~5년만 제공)
+category: LOW
+hard_filters:
+  - { field: market_cap_usd, op: ">=", value: 10000000000 }
+  - { field: beta_60m, op: between, value: [0.15, 1.10] }
+  - { field: div_streak_years, op: ">=", value: 10 }
+  - { field: dgr_5y, op: ">=", value: 0.03 }
+  - { field: eps_payout, op: between, value: [0.30, 0.75] }
+  - { field: fcf_payout, op: "<=", value: 0.85 }
+  - { field: net_debt_ebitda, op: "<=", value: 3.0 }
+  - { field: interest_coverage, op: ">=", value: 5.0 }
+  - { field: roe_5y_avg, op: ">=", value: 0.12 }
+  - { field: roic, op: ">", ref: wacc_est }
+  - { field: eps_positive_years_10, op: ">=", value: 4 }
+  - { field: piotroski_f, op: ">=", value: 6 }
+  - { field: altman_z, op: ">=", value: 3.0 }
+  - { field: credit_rating, op: in, value: [BBB+, A-, A, A+, AA-, AA, AA+, AAA], optional: true, note: "rating 소스 없음 — 3b" }

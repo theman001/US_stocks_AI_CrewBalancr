@@ -71,8 +71,22 @@ def piotroski_f(years: list[AnnualFinancials]) -> int | None:
     return sum(1 for c in resolved if c)
 
 
-def altman_z(y0: AnnualFinancials, market_cap: float | None) -> float | None:
-    """제조업 Z-Score. Z>3 안전, <1.8 위험."""
+def _fill(years: list[AnnualFinancials]) -> AnnualFinancials:
+    """years[0] 을 기준으로 None 필드를 다음 연도 값으로 메운 최신 스냅샷."""
+    if not years:
+        return AnnualFinancials()
+    merged = years[0].model_dump()
+    for later in years[1:]:
+        ld = later.model_dump()
+        for k, v in merged.items():
+            if v is None and ld.get(k) is not None:
+                merged[k] = ld[k]
+    return AnnualFinancials(**merged)
+
+
+def altman_z(years: list[AnnualFinancials], market_cap: float | None) -> float | None:
+    """제조업 Z-Score. Z>3 안전, <1.8 위험. 최신 연도 결측 필드는 직전 연도로 보완."""
+    y0 = _fill(years)
     ta = y0.total_assets
     if ta is None or ta == 0 or market_cap is None:
         return None
@@ -103,6 +117,26 @@ def dividend_streak_years(annual_dividends: list[tuple[int, float]]) -> int | No
         else:
             streak = 0
     return streak
+
+
+def mean_roe(years: list[AnnualFinancials], n: int = 5) -> float | None:
+    """최근 `n` 개 회계연도 ROE 평균 (net income / stockholders equity)."""
+    roes: list[float] = []
+    for y in years[:n]:
+        ni, eq = y.net_income, y.stockholders_equity
+        if ni is not None and eq is not None and eq != 0:
+            roes.append(ni / eq)
+    return sum(roes) / len(roes) if roes else None
+
+
+def roic(y0: AnnualFinancials, tax_rate: float = 0.21) -> float | None:
+    """NOPAT / 투하자본 근사. 투하자본 = 자기자본 + 장기부채."""
+    if y0.ebit is None or y0.stockholders_equity is None:
+        return None
+    invested = y0.stockholders_equity + (y0.long_term_debt or 0.0)
+    if invested <= 0:
+        return None
+    return y0.ebit * (1.0 - tax_rate) / invested
 
 
 def dgr(annual_dividends: list[tuple[int, float]], years: int = 5) -> float | None:

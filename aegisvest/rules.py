@@ -94,3 +94,54 @@ def _load(name: str) -> dict[str, object]:
 @lru_cache(maxsize=1)
 def regime_rules() -> RegimeRules:
     return RegimeRules.model_validate(_load("regime_rules.yaml"))
+
+
+# ─────────────────────── 스크리닝 필터 (3a-5) ───────────────────────
+
+
+class FilterSpec(BaseModel):
+    """하드 필터 하나. `ref` 가 있으면 다른 필드와 비교 (roic > wacc_est)."""
+
+    field: str
+    op: str  # ">=" | "<=" | ">" | "<" | "between" | "in" | "ne"
+    value: float | int | list[float] | list[str] | str | None = None
+    ref: str | None = None
+    optional: bool = False  # True 면 데이터 없을 때 통과, False 면 탈락
+    note: str = ""
+
+
+class CategoryFilters(BaseModel):
+    category: str
+    hard_filters: list[FilterSpec]
+
+
+class ScoringComponent(BaseModel):
+    """스코어 구성요소. metrics 각각을 percentile rank 로 정규화 후 방향 적용."""
+
+    name: str
+    weight: float
+    metrics: list[str]
+    directions: list[int]  # +1 = 높을수록 좋음, -1 = 낮을수록 좋음
+    llm_fed: bool = False  # True 면 theme_strength_overrides 로 주입 (기본 중립 0.5)
+
+
+class SubtierRule(BaseModel):
+    name: str
+    filters: list[FilterSpec]  # 전부 만족하면 이 서브티어
+
+
+class CategoryScoring(BaseModel):
+    category: str
+    max_positions: int
+    components: list[ScoringComponent]
+    subtiers: list[SubtierRule]
+
+
+@lru_cache(maxsize=8)
+def category_filters(category: str) -> CategoryFilters:
+    return CategoryFilters.model_validate(_load(f"filters/{category.lower()}.yaml"))
+
+
+@lru_cache(maxsize=8)
+def category_scoring(category: str) -> CategoryScoring:
+    return CategoryScoring.model_validate(_load(f"scoring/{category.lower()}.yaml"))

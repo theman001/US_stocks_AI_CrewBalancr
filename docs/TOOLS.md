@@ -110,24 +110,32 @@ Output: {
 ```
 `config/allocation.yaml` (보간 앵커, nav_tiers, 가드레일).
 
-## 6. ScreenerTool
+## 6. ScreenerTool  → `screen(category, universe="combined", limit=None) -> ScreenResult | ToolError`
 ```
-Input:  category: "LOW"|"MID"|"HIGH", universe: "SP500"|"NASDAQ100"|"combined"
-Output: {
-  "category": str,
-  "passed": [{"ticker": str, "hard_filters": {name: {"value": float, "pass": bool}}}],
-  "failed_count": int, "as_of": "YYYY-MM-DD"
-}
+Output: ScreenResult {
+  category, passed: [ScreenedTicker{ticker, passed, checks: {name: {result, value}}, subtier}],
+  failed_count, evaluated_count, errored: [str], as_of
+}  # check.result: pass | fail | skip
 ```
-`config/filters/{low,mid,high}.yaml` 임계값. FundamentalsTool/MarketDataTool 배치 호출.
+`config/filters/{low,mid,high}.yaml`. `_screen.merged_values()` 가 fundamentals + market_data 병합.
+HIGH 는 통과 후보군 내 RS 상위 30% 추가 컷. `limit` 은 레이트리밋 대응(무료 데이터 느림).
+소스: yfinance (FMP 무료 티어 종목 제한으로 전환, 2026-09).
 
-## 7. ScoringCalculator
+## 7. ScoringCalculator  → `score_category(category, tickers, theme_strength_overrides=None) -> ScoringResult | ToolError`
 ```
-Input:  category: str, tickers: list[str], theme_strength_overrides: dict | None
-Output: {"scores": [{"ticker": str, "score": float, "subtier": str,
-                     "component_scores": {name: float}, "rank": int}]}
+Output: ScoringResult { category, scores: [ScoredTicker{ticker, score(0~100), rank, subtier,
+        component_scores: {name: float}}], errored, as_of }  # scores 는 score 내림차순
 ```
-`config/scoring/{category}.yaml` 가중치. percentile rank 정규화 후 가중합.
+`config/scoring/{category}.yaml` (components/weights/directions/subtiers). 후보군 내 percentile
+rank 정규화 → direction 적용 → component 평균 → weight 가중합 ×100. 결측 metric 은 중립 0.5.
+`theme_strength` 는 `llm_fed` — Thematic Analyst(3b) 가 `theme_strength_overrides` 로 주입.
+
+### 7.1 market_breadth  → `market_breadth(tickers) -> dict | ToolError`
+`{pct_above_200dma (%), pct_above_200dma_4w_change (%p), n, as_of}`. 3a-8 파이프라인이
+유니버스로 호출해 `MacroData.pct_above_200dma` 를 패치 → 레짐 breadth 축 활성화.
+
+### 7.2 get_universe  → `get_universe(name="combined") -> list[str]`
+`config/universe/{sp500,nasdaq100}.txt` 정적 명단 (FMP 구성종목 엔드포인트 프리미엄).
 `theme_strength_overrides` 는 Thematic Analyst 피드백 (HIGH 한정, 제한 범위).
 
 ## 8. CashFlowRebalancer
