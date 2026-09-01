@@ -42,32 +42,32 @@ def test_bad_scope() -> None:
     assert r.field == "scope"
 
 
-def test_ticker_no_key() -> None:
-    r = nw.news_scraper("ticker", ticker="AAPL")
-    assert isinstance(r, ToolError)
-    assert r.field == "FMP_API_KEY"
-
-
 def test_ticker_without_ticker_arg() -> None:
     r = nw.news_scraper("ticker")
     assert isinstance(r, ToolError)
     assert r.field == "ticker"
 
 
-def test_ticker_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FMP_API_KEY", "k")
-    nw.get_settings.cache_clear()
-    rows: list[dict[str, Any]] = [
-        {
-            "title": "AAPL beats",
-            "site": "Reuters",
-            "publishedDate": "2026-09-01 09:00:00",
-            "url": "https://x.test/a",
-            "text": "body",
-        }
-    ]
-    monkeypatch.setattr(nw, "cached_json", lambda *a, **k: rows)
+def test_ticker_uses_google_news_rss(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, str] = {}
+
+    def fake_text(url: str, **_k: Any) -> str:
+        seen["url"] = url
+        return _RSS
+
+    monkeypatch.setattr(nw, "cached_text", fake_text)
     r = nw.news_scraper("ticker", ticker="aapl", days=30)
     assert isinstance(r, NewsResult)
     assert r.ticker == "AAPL"
-    assert r.headlines[0].source == "Reuters"
+    assert "AAPL%20stock" in seen["url"]
+    assert r.headlines[0].title == "Fed holds rates steady"
+
+
+def test_ticker_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*_a: object, **_k: object) -> str:
+        raise ConnectionError("down")
+
+    monkeypatch.setattr(nw, "cached_text", boom)
+    r = nw.news_scraper("ticker", ticker="AAPL")
+    assert isinstance(r, ToolError)
+    assert r.field == "network"

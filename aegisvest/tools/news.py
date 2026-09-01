@@ -1,5 +1,6 @@
-"""NewsScraperTool — 헤드라인 스크랩. 매크로: RSS, 종목: FMP. docs/TOOLS.md §11.
+"""NewsScraperTool — 헤드라인 스크랩. 전부 무료 RSS (Google News / Yahoo). docs/TOOLS.md §11.
 
+FMP 뉴스 엔드포인트는 무료 티어에서 제한(402/404) → 종목 뉴스도 Google News RSS.
 스크랩만 한다. 요약·해석·이벤트 판단은 에이전트의 몫.
 """
 
@@ -7,12 +8,12 @@ from __future__ import annotations
 
 import datetime as dt
 from email.utils import parsedate_to_datetime
-from typing import Any
+from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 from aegisvest.config import get_settings
 from aegisvest.schemas import NewsItem, NewsResult, ToolError
-from aegisvest.tools._io import cached_json, cached_text
+from aegisvest.tools._io import cached_text
 
 _MACRO_FEEDS = [
     "https://news.google.com/rss/search?q=%22federal%20reserve%22%20OR%20FOMC%20OR%20"
@@ -20,7 +21,10 @@ _MACRO_FEEDS = [
     "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US",
 ]
 _UA = {"User-Agent": "Mozilla/5.0 (AegisVest news scraper)"}
-_FMP_NEWS = "https://financialmodelingprep.com/api/v3/stock_news"
+
+
+def _google_news_url(query: str) -> str:
+    return f"https://news.google.com/rss/search?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
 
 
 def _parse_date(raw: str | None) -> str:
@@ -75,39 +79,17 @@ def _macro_headlines(days: int, ttl: float) -> tuple[list[NewsItem], int]:
     return out, failures
 
 
-def _ticker_headlines(ticker: str, days: int, ttl: float, key: str) -> list[NewsItem]:
-    cutoff = dt.date.today() - dt.timedelta(days=days)
-    data: Any = cached_json(
-        _FMP_NEWS, {"tickers": ticker, "limit": 50, "apikey": key}, ttl_hours=ttl
-    )
-    out: list[NewsItem] = []
-    for row in data or []:
-        published = _parse_date(row.get("publishedDate"))
-        if published and dt.date.fromisoformat(published) < cutoff:
-            continue
-        out.append(
-            NewsItem(
-                title=(row.get("title") or "").strip(),
-                source=(row.get("site") or "FMP").strip(),
-                published=published,
-                url=(row.get("url") or "").strip(),
-                summary=(row.get("text") or "").strip()[:500],
-            )
-        )
-    return out
-
-
 def _scrape_ticker(ticker: str | None, days: int, ttl: float, today: str) -> NewsResult | ToolError:
     if not ticker:
         return ToolError(error="scope='ticker' 인데 ticker 없음", field="ticker")
-    key = get_settings().fmp_api_key
-    if not key:
-        return ToolError(error="FMP_API_KEY 미설정 (종목 뉴스)", field="FMP_API_KEY")
     sym = ticker.strip().upper()
+    cutoff = dt.date.today() - dt.timedelta(days=days)
     try:
-        items = _ticker_headlines(sym, days, ttl, key)
+        xml_text = cached_text(_google_news_url(f"{sym} stock"), ttl_hours=ttl, headers=_UA)
     except Exception as exc:
         return ToolError(error=f"종목 뉴스 조회 실패: {exc}", field="network")
+    items = _dedup(_parse_rss(xml_text, "Google News", cutoff))
+    items.sort(key=lambda x: x.published, reverse=True)
     return NewsResult(scope="ticker", ticker=sym, headlines=items, as_of=today)
 
 

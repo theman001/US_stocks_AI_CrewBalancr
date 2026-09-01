@@ -16,7 +16,18 @@ def _isolate_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
     monkeypatch.setenv("STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path / "outputs"))
     monkeypatch.setenv("CACHE_DIR", str(tmp_path / "cache"))
-    for key in ("MODE", "DRY_RUN", "UNIVERSE", "MATTERMOST_WEBHOOK_URL", "DEEPSEEK_API_KEY"):
+    # 개발자 .env 에 의존하지 않도록 키·모드를 제거. 필요한 테스트는 monkeypatch.setenv.
+    for key in (
+        "MODE",
+        "DRY_RUN",
+        "UNIVERSE",
+        "MATTERMOST_WEBHOOK_URL",
+        "DEEPSEEK_API_KEY",
+        "FMP_API_KEY",
+        "FRED_API_KEY",
+        "NASDAQ_DATA_LINK_API_KEY",
+        "MANUAL_ISM_PMI",
+    ):
         monkeypatch.delenv(key, raising=False)
     config.get_settings.cache_clear()
     yield
