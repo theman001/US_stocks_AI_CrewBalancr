@@ -28,11 +28,11 @@ _FRED_SERIES = {
     "wei": "WEI",  # 퍼센트(연율 근사)
     "claims": "IC4WSA",  # 건수 (주간)
 }
+# 라이브 검증됨 (2026-09). KC/Richmond 는 FRED series id 확인 안 돼 제외 — 3개로 충분.
 _REGIONAL_FED = {
-    "empire": "GACDISA066MSFRBNY",
-    "philly": "GACDFSA066MSFRBPHI",
-    "dallas": "BACTSAMFRBDAL",
-    "kansas_city": "BACTAMFRBKC",
+    "empire": "GACDISA066MSFRBNY",  # NY Fed 일반활동
+    "philly": "GACDFSA066MSFRBPHI",  # Philadelphia Fed 일반활동
+    "dallas": "BACTSAMFRBDAL",  # Dallas Fed 일반활동
 }
 
 
