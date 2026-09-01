@@ -192,6 +192,25 @@ rag_status:
 ```
 회상은 `auto` + `approved` 만 대상.
 
+> **⚠️ 4-2 구현 결정 (2026-09-01) — `aegisvest/diary/reviewer.py` + `agents/crew.run_reviewer`.**
+> - **하인드사이트 방지**: Reviewer 입력은 항목의 **기록 시점** 필드(`claim`/`reasoning`/
+>   `supporting_refs`/`data_snapshot`/`situation_text`/`decision`) + 채점 수치(`outcome`)뿐.
+>   NewsScraper 툴은 **주지 않는다** — 오늘 RSS 헤드라인은 사후정보라 §4.2 목적과 정면 배치.
+>   "판단일 당일·이전 뉴스" point-in-time 인용은 Sharadar 도입 시 (3a-11 보류와 같은 근거).
+> - **강제 구조**는 `ReviewerOutput` 필드로: `missed_signal`(인용, 없으면 `none: <이유>`) /
+>   `underestimated_because` / `what_would_change`. `missed_signal`·`what_would_change` 가
+>   8자 미만이거나 모호어("신중","조심","주의"…) 포함 시 폐기 대신 **`rag_status=pending_review`
+>   강등** + `post_mortem.flags` 기록 (거버넌스 CLI 가 검토). `no_fabricated_numbers`
+>   는 `hedge_only=True` (①②③ 와 동일 — 기록 텍스트 인용이라 수치 대조 불가).
+> - **`lesson_card` ≤ 25 토큰**: 공백어수·문자수(토큰≈2-3자) 이중 상한 근사로 절삭.
+>   정밀 토크나이저는 4-6 튜닝.
+> - **게이트**: `pending_review` = `claim_type ∈ {regime_call, cio_override}` **또는**
+>   `action:crisis_shift` 태그 **또는** (`allocation_tilt` **그리고** `magnitude:{large,structural}`).
+>   그 외 `auto`. "소형 exclusion" 의 크기 구분은 exclusion 에 magnitude 태그가 없어 미적용
+>   (전부 auto). `mistake:none` 태그는 검색 신호가 없어 저장 생략 (실제 mistake 만 태깅).
+> - **status 전이**: `evaluated` → `reflected`(반성함) / `gated`(needs_reflection 아님 — 상황벡터만
+>   RAG 진입). 둘 다 종결. 채점(evaluate.py) 과 별도 cron: `evaluate && reviewer` 체이닝.
+
 ---
 
 ## 5. 단계 ④ 벡터화·저장
@@ -383,8 +402,8 @@ recency_halflife_months: 18
 
 **cron 추가** (`docker-compose.yml` configs 인라인 crontab):
 ```cron
-# 월요일 23:00 KST — 판단 일기 채점 + 반성 배치 (크루·감시견과 분리)
-0 23 * * 1  flock -n /tmp/eval.lock python -m aegisvest.diary.evaluate
+# 월요일 23:00 KST — 판단 일기 채점(결정론) + 반성(⑨ Reviewer LLM) 배치 (크루·감시견과 분리)
+0 23 * * 1  flock -n /tmp/eval.lock sh -c 'python -m aegisvest.diary.evaluate && python -m aegisvest.diary.reviewer'
 ```
 
 **의존성 추가**: `chromadb`, `FlagEmbedding` (또는 `sentence-transformers`), bge-m3 가중치 (이미지 빌드 시 다운로드 또는 볼륨 캐시).

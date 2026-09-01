@@ -95,6 +95,40 @@ risk_review:
   expected_output: >
     RiskReview JSON: verdict(APPROVED|CONDITIONAL|REJECTED), conditions[], concerns[].
 
+post_mortem:
+  agent: performance_reviewer
+  description: >
+    아래는 과거 한 판단의 **당시 기록**(그때 가용했던 정보만)과 채점 결과다.
+    사후에 재구성된 내러티브는 주어지지 않는다 — 결과를 알고 원인을 소급하지 마라.
+
+    [claim_type] {claim_type}
+    [당시 주장] {claim}
+    [당시 근거] {reasoning}
+    [당시 참조] {supporting_refs}
+    [당시 데이터 스냅샷] {data_snapshot}
+    [당시 상황] {situation_text}
+    [결정 내용] {decision}
+    [채점 결과 (수치, 확정)] {outcome}
+
+    강제 구조 (구체적 신호·인용 없으면 폐기):
+    - missed_signal: 당시 가용했으나 놓친 신호를 스냅샷/참조에서 실제 인용. 없었으면 "none: <이유>".
+    - underestimated_because: 그 신호를 저평가한 이유.
+    - what_would_change: 다음에 적용할 구체적 수정 휴리스틱 (규칙 형태). "더 신중했어야"·"주의 필요" 류는 폐기.
+
+    그 다음:
+    - what_happened: 결과를 1~2문장으로. {outcome} 의 수치만 인용하고 새 숫자를 만들지 마라.
+    - root_cause: verdict 가 miss/partial 이면 근본 원인, hit 면 null.
+    - lesson: 일반화 가능한 교훈 한 문장.
+    - base_rate_note: 유사 셋업의 과거 기저율 (예: "규제 공포 3건 중 2건 hit").
+    - lesson_card: 25 토큰 이내. 형식 "[신호축약·조건] 결론".
+    - event_tags / theme_tags: 아래 목록에서만 (없으면 빈 리스트).
+        events: {semi_open_events}
+        themes: {semi_open_themes}
+    - mistake_tag: 아래에서 1개 (해당 없으면 none). {closed_mistakes}
+  expected_output: >
+    ReviewerOutput JSON: what_happened, missed_signal, underestimated_because, what_would_change,
+    root_cause(nullable), lesson, base_rate_note, lesson_card, event_tags[], theme_tags[], mistake_tag.
+
 cio_decision:
   agent: cio
   description: >

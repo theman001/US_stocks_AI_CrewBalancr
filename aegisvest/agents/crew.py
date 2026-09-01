@@ -34,6 +34,7 @@ from aegisvest.schemas import (
     PipelineResult,
     PMDraft,
     ResearchView,
+    ReviewerOutput,
     RiskReview,
     ThematicNotes,
 )
@@ -250,6 +251,38 @@ def run_analysts(
         market_narrative=_out(t_news, MarketNarrative),
         research_view=_out(t_rd, ResearchView),
     )
+
+
+def run_reviewer(inputs: dict[str, str], *, llm: Any = None) -> ReviewerOutput:
+    """⑨ Performance Reviewer — 단일 태스크 크루. report/phase-4 §4.
+
+    입력(당시 기록 + 채점 수치)은 aegisvest/diary/reviewer.py 가 구성. 툴 없음
+    (오늘 헤드라인 = 사후정보라 하인드사이트 오염). guardrail 은 hedge_only —
+    reviewer 는 기록된 텍스트에서 인용하므로 수치 대조 대신 헤지 표현만 거부 (①②③ 와 동일).
+    """
+    quiet_crew_console()
+    d = _cfg("agents.yaml")["performance_reviewer"]
+    reviewer = Agent(
+        role=d["role"],
+        goal=d["goal"],
+        backstory=d["backstory"].replace("{absolute_rules}", _ABSOLUTE_RULES),
+        llm=llm or get_llm(temperature=float(d.get("temperature", 0.2))),
+        tools=[],
+        allow_delegation=False,
+        verbose=False,
+    )
+    td = _cfg("tasks.yaml")["post_mortem"]
+    task = Task(
+        description=td["description"],
+        expected_output=td["expected_output"],
+        agent=reviewer,
+        output_pydantic=ReviewerOutput,
+        guardrail=no_fabricated_numbers({}, hedge_only=True),
+    )
+    Crew(agents=[reviewer], tasks=[task], process=Process.sequential, verbose=False).kickoff(
+        inputs=inputs
+    )
+    return _out(task, ReviewerOutput)  # type: ignore[no-any-return]
 
 
 def _num_payload(pr: PipelineResult) -> dict[str, Any]:

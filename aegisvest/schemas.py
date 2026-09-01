@@ -559,6 +559,33 @@ class CIODecision(BaseModel):
     hold_reason: str | None = Field(default=None, description="HOLD 시 필수")
 
 
+class ReviewerOutput(BaseModel):
+    """⑨ Performance Reviewer LLM 출력. report/phase-4 §4.1·§4.2.
+
+    사후확신 편향 방지: `missed_signal` / `underestimated_because` / `what_would_change` 를
+    강제해 "당시 관점" 으로 서술하게 한다. 점수·verdict 는 건드리지 않는다 (evaluate.py 소관).
+    event/theme/mistake 태그는 통제 어휘(config/diary_taxonomy.yaml)에서만 — reviewer.py 가 검증.
+    """
+
+    what_happened: str = Field(description="결과 1~2문장, outcome 수치만 인용")
+    missed_signal: str = Field(
+        description="당시 가용했으나 놓친 신호 (인용). 없었으면 'none: <이유>'"
+    )
+    underestimated_because: str = Field(description="그 신호를 저평가한 이유")
+    what_would_change: str = Field(description="다음에 적용할 구체적 수정 휴리스틱")
+    root_cause: str | None = Field(default=None, description="miss/partial 근본 원인, hit 면 null")
+    lesson: str = Field(description="일반화 가능한 교훈 한 문장")
+    base_rate_note: str = Field(description="유사 셋업 과거 기저율")
+    lesson_card: str = Field(description="25 토큰 이내 요약 (reviewer.py 가 절삭)")
+    event_tags: list[str] = Field(
+        default_factory=list, description="event:* (semi-open, YAML 목록)"
+    )
+    theme_tags: list[str] = Field(
+        default_factory=list, description="theme:* (semi-open, YAML 목록)"
+    )
+    mistake_tag: str = Field(default="none", description="mistake:* (closed, YAML 목록) 1개")
+
+
 class CrewOutcome(BaseModel):
     """run_organization() 결과. 3b-2: ① + ②③④ → ⑤ → [⑥ PM ↔ ⑦ Risk (반려 1회)] → ⑧ CIO.
 
@@ -624,7 +651,7 @@ class DiaryEntry(BaseModel):
     # ── Phase 4 append 대상 (기록 시 None) ──
     situation_vector_id: str | None = None
     outcome: dict[str, object] | None = None
-    post_mortem: str | None = None
+    post_mortem: dict[str, object] | None = None  # 4-2 Reviewer: root_cause/lesson/base_rate_note/…
     lesson_card: str | None = None
     lesson_vector_id: str | None = None
     rag_status: str = "pending_schema"

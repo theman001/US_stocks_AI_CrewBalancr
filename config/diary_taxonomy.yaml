@@ -81,7 +81,8 @@ semi_open:
     ]
 
 # 결정론 태그 규칙 — snapshot(data_snapshot) 조건 → signal 태그. 파이썬이 기록 시 평가.
-# 표현식은 `aegisvest.diary.schema._SAFE_EVAL` 로 평가 (변수=data_snapshot 키, eval 아님).
+# 표현식은 `aegisvest.diary.schema.eval_signal_rules` 가 평가 (변수=data_snapshot 키).
+# 결측 필드·타입 오류는 조용히 미발동 (일기 기록을 막지 않음).
 signal_rules:
   credit_spread_widening: "hy_oas_4w_change_bp is not None and hy_oas_4w_change_bp >= 10"
   credit_spread_tightening: "hy_oas_4w_change_bp is not None and hy_oas_4w_change_bp <= -10"

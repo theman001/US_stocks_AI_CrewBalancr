@@ -31,7 +31,14 @@
   + crew/organization 콜백이 action·magnitude·rates_dir·원자료 스냅샷 채움. 3a-9 자리표시자
   완성. 검토: [reviews/4-0.md](reviews/4-0.md) (1 round, 0 findings).
 - [x] **4-1 evaluator** — `diary/evaluate.py`(`run`/`needs_reflection`/CLI): 섀도델타(4종)·초과수익 vs SPY(exclusion/catalyst)·regime_call 궤적·event_risk 근사. `logger.save_entries`. 11 tests(합성). 검토: [reviews/4-1.md](reviews/4-1.md) (2 rounds, 1 finding). 임계 상수·정밀 카테고리 중앙값은 실데이터 후(4-6)/Sharadar.
-- [ ] **4-2 Performance Reviewer** — ⑨ 에이전트 (post_mortem + 태깅 + lesson_card)
+- [x] **4-2 Performance Reviewer** — ⑨ 에이전트 (`config/{agents,tasks}.yaml` +
+  `agents/crew.run_reviewer` 단일 태스크 크루) + `diary/reviewer.py`(`run`/CLI): 채점완료
+  항목 중 `needs_reflection` → post_mortem·lesson_card·event/theme/mistake 태그 append,
+  나머지는 `gated`. 하인드사이트 방지(§4.2): 입력은 기록시점 필드+채점수치만, 뉴스툴 없음.
+  `no_fabricated_numbers`(hedge_only) + 모호 반성 → pending_review 강등 + lesson_card 토큰절삭
+  + SEMI-OPEN 신규태그 → `state/diary/pending_tags.json`. RAG 게이트(§4.3)로 rag_status 확정.
+  `ReviewerOutput` 스키마, `DiaryEntry.post_mortem` dict 화. 10 tests(mock LLM). 검토:
+  [reviews/4-2.md](reviews/4-2.md). cron: `evaluate && reviewer` 체이닝. 실 DeepSeek 미검증(잔액).
 - [ ] **4-3 RAG 저장** — diary/rag.py (bge-m3 이중벡터 + ChromaDB, 기존 항목 백필)
 - [ ] **4-4 recall + 주입** — DiaryRAG.recall() (Q-D 검색, O-A 랭킹, P-D 포맷) + 에이전트 연결
 - [ ] **4-5 거버넌스 CLI** — `python -m aegisvest.diary review`

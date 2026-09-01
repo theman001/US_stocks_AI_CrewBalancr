@@ -76,6 +76,9 @@ uv run pytest -x -q
 - `derive_tags`: CLOSED 미지값 드롭, 8개 상한, `data_snapshot` 기반 signal 자동
 - evaluator (`tests/test_diary_evaluate.py`): 합성 shadow/가격 → 예상 score/verdict/attribution,
   not_due 스킵, 데이터 결측 → expired, `needs_reflection` 재현성
+- Reviewer (`tests/test_diary_reviewer.py`, mock LLM): RAG 게이트(레짐콜→pending_review,
+  소형 exclusion→auto), 점수 불변·what_happened append, 모호 반성("더 신중")→pending_review 플래그,
+  lesson_card 토큰 절삭, SEMI-OPEN 신규태그→pending_tags.json, needs_reflection 아니면 gated·idempotent
 - `recall()`: 유사도 < 0.55 → 무반환 (4-4)
 
 ## 통과 기준
