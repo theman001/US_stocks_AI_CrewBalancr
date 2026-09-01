@@ -499,6 +499,26 @@ class CrewOutcome(BaseModel):
     llm_used: bool = True
 
 
+class WeeklyRunResult(BaseModel):
+    """main.run() 출력 — 주간 크루 1회 실행 요약. 리포트·알림·테스트 공용."""
+
+    run_id: str
+    trigger: str = Field(description="scheduled | crisis")
+    held: bool = Field(description="CIO HOLD 로 매매 스킵")
+    crew_ran: bool
+    contribution_usd: float = 0.0
+    nav_usd: float
+    nav_krw: float
+    n_orders: int
+    n_fills: int
+    regime: str
+    crisis_active: bool
+    constraints_verdict: str
+    cio_verdict: str | None = None
+    report_path: str = ""
+    diary_ids: list[str] = Field(default_factory=list)
+
+
 class DiaryEntry(BaseModel):
     """판단 일기 항목. report/phase-4 §2.2. 기록 시점엔 결정·상황만, 결과·교훈은 Phase 4 append."""
 

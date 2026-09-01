@@ -62,6 +62,7 @@ class Settings:
     cache_ttl_hours: int
     paper_commission_pct: float
     paper_fx_spread_pct: float
+    monthly_contribution_krw: float  # 적금형 월 납입 (0 = 납입 없음)
 
     # 가드레일 (config/allocation.yaml 이 최종 근거 — 여기는 안전 하한)
     max_high_risk_exposure: float
@@ -92,6 +93,7 @@ def get_settings() -> Settings:
         cache_ttl_hours=int(os.getenv("CACHE_TTL_HOURS", "24")),
         paper_commission_pct=float(os.getenv("PAPER_COMMISSION_PCT", "0.001")),
         paper_fx_spread_pct=float(os.getenv("PAPER_FX_SPREAD_PCT", "0.005")),
+        monthly_contribution_krw=float(os.getenv("MONTHLY_CONTRIBUTION_KRW", "100000")),
         max_high_risk_exposure=float(os.getenv("MAX_HIGH_RISK_EXPOSURE", "0.20")),
     )
 

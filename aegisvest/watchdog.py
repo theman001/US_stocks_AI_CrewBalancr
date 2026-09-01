@@ -1,22 +1,34 @@
-"""일일 감시견 — 위기 감지 + 매크로 점수 누적. LLM 미사용. 근거: report/phase-2 §3.2.
+"""일일 감시견 — 위기 감지 + 매크로 점수 누적 + 일일 NAV 평가. LLM 미사용.
 
-매일:
+근거: report/phase-2 §3.2, phase-3 §7.3. 매일:
   1. macro_data() + regime_score() 계산
   2. crisis_state / (low_confidence 아니면) regime_history persist
-  3. CRISIS 이면 crisis_flag.json 기록 + Mattermost 알림
-     → main.py(3a-10) 가 다음 실행 시 flag 를 읽어 크루를 즉시 실행
-  4. 아니면 로그만
+  3. 모의 포트폴리오·벤치마크 일일 mark-to-market (거래일 종가 기준)
+  4. CRISIS 신규 발동 이면 crisis_flag.json 기록 + 알림 + 주간 크루 즉시 트리거
 """
 
 from __future__ import annotations
 
 import logging
 
+from aegisvest.broker import benchmarks as bm
+from aegisvest.broker import paper
 from aegisvest.config import ensure_runtime_dirs, get_settings
 from aegisvest.notify import post
-from aegisvest.schemas import CrisisFlag, CrisisState, RegimeHistoryPoint, RegimeResult
+from aegisvest.schemas import (
+    BenchmarkState,
+    CrisisFlag,
+    CrisisState,
+    PaperPortfolio,
+    RegimeHistoryPoint,
+    RegimeResult,
+    ToolError,
+)
 from aegisvest.state import load_list, load_model, save_list, save_model
+from aegisvest.tools._prices import latest_close_date
+from aegisvest.tools.fx import usd_krw
 from aegisvest.tools.macro_data import macro_data
+from aegisvest.tools.market_data import market_data
 from aegisvest.tools.regime import regime_score
 
 _HISTORY = "regime_history.json"
@@ -44,16 +56,54 @@ def _handle_crisis(result: RegimeResult, as_of: str) -> None:
         save_model(
             _CRISIS_FLAG, CrisisFlag(active=True, reason=result.crisis_reason, detected_at=as_of)
         )
-        if not (prior and prior.active):
+        if not (prior and prior.active):  # 신규 발동 → 알림 + 주간 크루 즉시
             post(
                 f"🆘 **CRISIS 발동** ({as_of})\n{result.crisis_reason}\n"
                 f"regime={result.regime.value} · score_smooth={result.score_smooth:.1f}\n"
-                f"주간 크루 즉시 실행 필요",
+                f"주간 크루 즉시 실행",
                 channel="aegis-alerts",
             )
+            _trigger_weekly_crew()
     elif prior and prior.active:
         save_model(_CRISIS_FLAG, CrisisFlag(active=False, cleared_at=as_of))
         post(f"✅ CRISIS 해제 ({as_of}) · regime={result.regime.value}", channel="aegis-alerts")
+
+
+def _trigger_weekly_crew() -> None:
+    try:
+        from aegisvest.main import run as run_weekly  # noqa: PLC0415  # 지연 import (순환·무게)
+
+        run_weekly(trigger="crisis")
+    except Exception:
+        _log.exception("위기 트리거 주간 크루 실행 실패 — 다음 정기 실행에서 처리")
+
+
+def _mark_nav(fallback_date: str) -> None:
+    """모의 포트·벤치마크 일일 mark-to-market. 포트가 없으면(모의투자 미시작) 아무것도 안 함."""
+    pf = load_model("paper_portfolio.json", PaperPortfolio)
+    if pf is None or (not pf.positions and pf.cash_usd <= 0):
+        return
+    as_of = _trading_day(fallback_date)
+    if pf.history and pf.history[-1].date >= as_of:
+        return  # 이미 이 거래일 마감 반영 (주말·중복 실행)
+    fx = usd_krw()
+    fx_rate = fx if not isinstance(fx, ToolError) else 1400.0
+    prices: dict[str, float] = {}
+    for t in [*pf.positions, *bm.BENCH_TICKERS]:
+        md = market_data(t)
+        if not isinstance(md, ToolError) and md.last_price > 0:
+            prices[t] = md.last_price
+    paper.mark_to_market(pf, prices, as_of, fx_rate)
+    save_model("paper_portfolio.json", pf)
+    bench = load_model("benchmarks.json", BenchmarkState)
+    if bench is not None:
+        bm.mark_to_market(bench, prices, as_of, fx_rate)
+        save_model("benchmarks.json", bench)
+
+
+def _trading_day(default: str) -> str:
+    """가장 최근 미국장 거래일 (NAV 타임라인 인덱스). 실패 시 default(macro.as_of)."""
+    return latest_close_date(float(get_settings().cache_ttl_hours)) or default
 
 
 def run() -> RegimeResult:
@@ -66,7 +116,8 @@ def run() -> RegimeResult:
 
     save_model(_CRISIS_STATE, result.crisis_state)
     _update_history(history, result, macro.as_of)
-    _handle_crisis(result, macro.as_of)
+    _mark_nav(macro.as_of)
+    _handle_crisis(result, macro.as_of)  # 마지막 — 위기 시 주간 크루 트리거
 
     _log.info(
         "%s regime=%s total=%d smooth=%.2f n_axes=%d%s stale=%s",

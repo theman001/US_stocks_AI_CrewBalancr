@@ -188,6 +188,13 @@ Output: {"headlines": [{"title": str, "source": str, "published": "YYYY-MM-DD",
 `recall(query_text, situation_tags, k) -> list[dict]` — report/phase-4 §6.
 ChromaDB 이중 컬렉션 + bge-m3 로컬. 검색 로직 Q-D, 랭킹 O-A, 주입 포맷 P-D.
 
+## 13a. usd_krw  → `usd_krw(ttl_hours=None) -> float | ToolError`
+`tools/fx.py`. yfinance `KRW=X` 마지막 종가 (1 USD = N KRW). 캐시. 500~3000 범위 밖은 오류.
+모의투자 원화 입금 환산 (`paper.add_contribution` 에 base rate 로 전달, 스프레드는 브로커가 적용).
+
+## 13b. latest_close_date  → `latest_close_date(ttl_hours, symbol="^GSPC") -> str | None`
+`tools/_prices.py`. 가장 최근 미국장 거래일 (YYYY-MM-DD). 감시견·main 의 NAV 타임라인 인덱스 공용.
+
 ## 13. run_pipeline  (결정론 코어 오케스트레이터, 툴 아님)  → `run_pipeline(*, portfolio, pending_contribution_usd=0, macro=None, regime_history=None, crisis_state=None, universe="combined", mode="paper") -> PipelineResult`
 `aegisvest/pipeline.py`. state 를 읽지도 쓰지도 않고 주문 실행도 안 함 (호출자 몫). **LLM 관여 0**.
 체인: `macro_data`(+`market_breadth` 로 breadth 축 패치) → `regime_score` → `allocation_targets`

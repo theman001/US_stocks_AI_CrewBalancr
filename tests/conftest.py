@@ -27,6 +27,7 @@ def _isolate_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
         "FRED_API_KEY",
         "NASDAQ_DATA_LINK_API_KEY",
         "MANUAL_ISM_PMI",
+        "MONTHLY_CONTRIBUTION_KRW",
     ):
         monkeypatch.delenv(key, raising=False)
     config.get_settings.cache_clear()

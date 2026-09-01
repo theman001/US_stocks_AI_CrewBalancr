@@ -23,3 +23,12 @@ def history(symbol: str, ttl_hours: float) -> pd.DataFrame:
         return cast("pd.DataFrame", df[cols].dropna())
 
     return cached(f"yf:hist:{symbol}:{HISTORY_PERIOD}", ttl_hours, _fetch)
+
+
+def latest_close_date(ttl_hours: float, symbol: str = MARKET_SYMBOL) -> str | None:
+    """가장 최근 미국장 거래일 (NAV 타임라인 인덱스 공용). 조회 실패 시 None."""
+    try:
+        h = history(symbol, ttl_hours)
+    except Exception:
+        return None
+    return str(h.index[-1].date()) if not h.empty else None

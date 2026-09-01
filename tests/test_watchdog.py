@@ -9,6 +9,13 @@ from aegisvest.schemas import CrisisFlag, CrisisState, MacroData, RegimeHistoryP
 from tests.fixtures.macro import macro
 
 
+@pytest.fixture(autouse=True)
+def _no_integration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """감시견 로직만 테스트 — NAV 마킹·위기 트리거(네트워크·크루)는 no-op."""
+    monkeypatch.setattr(watchdog, "_mark_nav", lambda _d: None)
+    monkeypatch.setattr(watchdog, "_trigger_weekly_crew", lambda: None)
+
+
 @pytest.fixture
 def alerts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     captured: list[str] = []

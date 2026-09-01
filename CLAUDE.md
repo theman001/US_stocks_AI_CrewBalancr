@@ -14,7 +14,7 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 - Phase 4: 판단 일기 RAG
 
 ## 현재 빌드 단계
-`3a-10 리포트 + main` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
+`3a-11 backtest.py` — 진행 상황은 `docs/BUILD_PLAN.md` 참조 (단계 완료 시 갱신)
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 1.15 설치됨 (`uv sync --extra agents`). `docker` 는 이 개발환경에 없음.
 DeepSeek 키는 `.env` 에 있으나 **계정 잔액 부족** — 실 크루 미검증, mock(ScriptedLLM) 로 테스트.
@@ -32,6 +32,7 @@ uv run mypy aegisvest
 docker compose build
 python -m aegisvest.main        # 주간 크루
 python -m aegisvest.watchdog    # 일일 감시견
+python -m aegisvest.report performance   # 성과 조회
 ```
 
 ## 절대 규칙 (위반 시 코드 반려)

@@ -2,7 +2,7 @@
 
 근거: report/phase-2 §3.3 ①. 적금형 최적화 — 매도(양도세·수수료) 최소화.
 순서: (1) 가용 현금으로 부족 카테고리 매수 → (2) 그래도 밴드 밖이면 과대 카테고리 매도.
-쿨다운(동일 카테고리 10거래일)·1회 변동 상한 적용. CRISIS 는 쿨다운 예외.
+쿨다운(동일 카테고리 10거래일)은 **매도만** 막는다. 1회 변동 상한 적용. CRISIS 는 쿨다운 예외.
 """
 
 from __future__ import annotations
@@ -67,8 +67,7 @@ def cash_flow_rebalance(
     for c in underweight:
         if remaining <= 0:
             break
-        if _cooldown_hit(c, cooldown_blocked):
-            continue
+        # 쿨다운은 매도(단계 6)만 막는다 — 신규 현금 매수는 세금 0이라 제한 없음 (phase-2 §3.3 ⑦)
         amt = min(target_usd[c] - holding[c], remaining, max_move_usd)
         if amt <= 0:
             continue
