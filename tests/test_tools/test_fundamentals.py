@@ -168,3 +168,11 @@ def test_network_error(monkeypatch: pytest.MonkeyPatch) -> None:
     r = fun.fundamentals("AAPL")
     assert isinstance(r, ToolError)
     assert r.field == "network"
+
+
+def test_cagr_positional_index_with_interior_gap() -> None:
+    # [R0, R1, None, R3] years=3 → 기준은 R3 (3년 전), 압축 시 R1 로 어긋났었음
+    assert fun._cagr([8.0, 7.0, None, 4.0], 3) == pytest.approx((8.0 / 4.0) ** (1 / 3) - 1.0)
+    # 기준 연도 자체가 결측이면 계산 불가 → None (엉뚱한 해로 대체 안 함)
+    assert fun._cagr([8.0, 7.0, None, None], 3) is None
+    assert fun._cagr([8.0, 7.0], 3) is None  # 데이터 부족

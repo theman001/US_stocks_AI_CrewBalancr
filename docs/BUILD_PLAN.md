@@ -97,3 +97,7 @@
   벤치마크 기여 미보정(Gate B 왜곡) · read/write 인코딩 미지정(C 로케일 상태유실) ·
   `_mark_nav` guard 가 빈 포트 봄 · `max_change_per_rebal` 게이트가 메인 경로서 미작동 ·
   FX 폴백 1400 점프 · 가격 중복조회. 검토: [reviews/runtime-codereview.md](reviews/runtime-codereview.md). 263 tests.
+- [x] **data-tools** — `macro_data` · `market_data` · `fundamentals` · `news` · `_io` · `_prices`.
+  5건 수정: dropna 가 최신봉 버려 가격 stale · 캐시 손상 미복구+비원자적 · `_cagr` 결측
+  압축으로 기준연도 어긋남 · 뉴스 미상날짜 컷오프 우회 · 빈약 VIX 프레임 stale 미표시.
+  검토: [reviews/data-tools-codereview.md](reviews/data-tools-codereview.md). 268 tests.

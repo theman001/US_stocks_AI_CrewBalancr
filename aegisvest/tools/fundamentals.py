@@ -64,10 +64,13 @@ def _median(values: list[float | None]) -> float | None:
 
 
 def _cagr(latest_first: list[float | None], years: int) -> float | None:
-    vals = [v for v in latest_first if v is not None]
-    if len(vals) <= years or vals[years] <= 0 or vals[0] <= 0:
+    # 위치 인덱스 유지 — None 을 걸러 압축하면 중간 결측 시 기준연도가 어긋남
+    if len(latest_first) <= years:
         return None
-    return float((vals[0] / vals[years]) ** (1 / years) - 1.0)
+    latest, base = latest_first[0], latest_first[years]
+    if latest is None or base is None or base <= 0 or latest <= 0:
+        return None
+    return float((latest / base) ** (1 / years) - 1.0)
 
 
 def _op_margin_trend(op_income: list[float | None], revenue: list[float | None]) -> str | None:

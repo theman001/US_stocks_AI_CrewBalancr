@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import os
 import pickle
 import time
 from collections.abc import Callable
@@ -22,6 +23,17 @@ import requests
 from aegisvest.config import get_settings
 
 _TIMEOUT = 15
+
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    """temp + os.replace — SIGKILL·디스크풀 로 truncate 된 캐시가 'fresh' 로 남는 것 방지."""
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_bytes(data)
+        os.replace(tmp, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
 
 
 def _cache_path(key: str, suffix: str) -> Path:
@@ -49,8 +61,7 @@ def cached[T](key: str, ttl_hours: float, producer: Callable[[], T]) -> T:
         ):
             return cast(T, pickle.loads(path.read_bytes()))
     value = producer()
-    with contextlib.suppress(OSError):
-        path.write_bytes(pickle.dumps(value))
+    _write_atomic(path, pickle.dumps(value))
     return value
 
 
@@ -65,12 +76,14 @@ def cached_json(
     key = url + "?" + json.dumps(params or {}, sort_keys=True)
     path = _cache_path(key, ".json")
     if _fresh(path, _ttl(ttl_hours)):
-        return json.loads(path.read_text(encoding="utf-8"))
+        # 손상·truncate 된 캐시는 조용히 재생성 (cached() pickle 경로와 동일)
+        with contextlib.suppress(ValueError, OSError):
+            return json.loads(path.read_bytes())
     resp = requests.get(url, params=params, headers=headers, timeout=_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
-    with contextlib.suppress(OSError, TypeError):
-        path.write_text(json.dumps(data), encoding="utf-8")
+    with contextlib.suppress(TypeError):
+        _write_atomic(path, json.dumps(data).encode("utf-8"))
     return data
 
 
@@ -83,12 +96,12 @@ def cached_text(
     """HTTP GET -> 본문 텍스트 (RSS/XML), TTL 캐시."""
     path = _cache_path(url, ".txt")
     if _fresh(path, _ttl(ttl_hours)):
-        return path.read_text(encoding="utf-8")
+        with contextlib.suppress(OSError):
+            return path.read_text(encoding="utf-8")
     resp = requests.get(url, headers=headers, timeout=_TIMEOUT)
     resp.raise_for_status()
     text: str = resp.text
-    with contextlib.suppress(OSError):
-        path.write_text(text, encoding="utf-8")
+    _write_atomic(path, text.encode("utf-8"))
     return text
 
 
@@ -97,5 +110,5 @@ def clear_cache() -> None:
     cache_dir = get_settings().cache_dir
     if cache_dir.exists():
         for f in cache_dir.iterdir():
-            if f.suffix in {".json", ".pkl", ".txt"}:
+            if f.suffix in {".json", ".pkl", ".txt", ".tmp"}:
                 f.unlink()

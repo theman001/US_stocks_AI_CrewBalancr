@@ -66,3 +66,19 @@ def test_partial_fred_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     assert r.hy_oas_bp is None
     assert "fred:hy_oas" in r.stale_fields
     assert r.yc_10y_3m_bp is not None  # 나머지는 정상
+
+
+def test_thin_vix_frame_flagged_stale(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FRED_API_KEY", "test-key")
+    monkeypatch.setattr(mod, "_fred_series", lambda sid, key, limit=300: _fake_series(sid))
+
+    def thin(sym: str, ttl: float) -> pd.DataFrame:
+        if sym == "^VIX":
+            return price_frame(n=1, seed=1)  # 1행 프레임 (부분 캐시)
+        return price_frame(n=300, seed=hash(sym) % 100)
+
+    monkeypatch.setattr(mod, "history", thin)
+    mod.get_settings.cache_clear()
+    r = mod.macro_data()
+    assert r.vix is None
+    assert "yf:vix" in r.stale_fields  # 예외 없이 빈약한 데이터도 stale 로 표시

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from aegisvest.config import get_settings
 from aegisvest.schemas import MarketData, ToolError
 from aegisvest.tools import indicators as ind
@@ -30,7 +32,8 @@ def market_data(ticker: str) -> MarketData | ToolError:
     volume = hist["Volume"]
 
     vol_20d = ind.sma(volume, 20)
-    last_vol = float(volume.iloc[-1])
+    _lv = float(volume.iloc[-1])
+    last_vol = _lv if not math.isnan(_lv) else None  # 장 직후 Volume=NaN 가능
     adv_20d_usd = float((close * volume).tail(20).mean()) if len(close) >= 20 else None
 
     r6 = ind.total_return(close, 126)
@@ -54,6 +57,8 @@ def market_data(ticker: str) -> MarketData | ToolError:
         mom_12_1=ind.momentum_12_1(close),
         pct_from_52w_high=ind.pct_from_52w_high(close),
         vol_20d_avg=vol_20d,
-        vol_ratio_latest=(last_vol / vol_20d) if (vol_20d and vol_20d > 0) else None,
+        vol_ratio_latest=(
+            last_vol / vol_20d if (last_vol is not None and vol_20d and vol_20d > 0) else None
+        ),
         as_of=str(close.index[-1].date()),
     )

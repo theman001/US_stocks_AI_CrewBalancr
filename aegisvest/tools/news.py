@@ -27,6 +27,14 @@ def _google_news_url(query: str) -> str:
     return f"https://news.google.com/rss/search?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
 
 
+_DATE_TAGS = (
+    "pubDate",
+    "{http://purl.org/dc/elements/1.1/}date",
+    "{http://www.w3.org/2005/Atom}published",
+    "{http://www.w3.org/2005/Atom}updated",
+)
+
+
 def _parse_date(raw: str | None) -> str:
     if not raw:
         return ""
@@ -49,8 +57,9 @@ def _parse_rss(xml_text: str, source: str, cutoff: dt.date) -> list[NewsItem]:
         title = (it.findtext("title") or "").strip()
         if not title:
             continue
-        published = _parse_date(it.findtext("pubDate"))
-        if published and dt.date.fromisoformat(published) < cutoff:
+        published = next((d for tag in _DATE_TAGS if (d := _parse_date(it.findtext(tag)))), "")
+        # 날짜를 못 읽으면 days 창 밖일 수 있어 제외 (오래된 기사가 최근으로 오염되는 것 방지)
+        if not published or dt.date.fromisoformat(published) < cutoff:
             continue
         items.append(
             NewsItem(

@@ -20,7 +20,9 @@ def history(symbol: str, ttl_hours: float) -> pd.DataFrame:
     def _fetch() -> pd.DataFrame:
         df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d", auto_adjust=True)
         cols = [c for c in _COLS if c in df.columns]
-        return cast("pd.DataFrame", df[cols].dropna())
+        # Close 기준만 dropna — 장 직후 Volume=NaN 인 최신 봉을 통째로 버리면 last_price 가
+        # 하루 stale 됨. H/L/Vol NaN 은 개별 인디케이터가 None 처리 (indicators._last_float).
+        return cast("pd.DataFrame", df[cols].dropna(subset=["Close"]))
 
     return cached(f"yf:hist:{symbol}:{HISTORY_PERIOD}", ttl_hours, _fetch)
 

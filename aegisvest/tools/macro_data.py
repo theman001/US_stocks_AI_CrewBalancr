@@ -137,11 +137,13 @@ class _Yf:
         except Exception:
             self.stale.append("yf:vix")
             return
-        if len(h) >= 2:
-            self.vix = float(h["Close"].iloc[-1])
-            prev = float(h["Close"].iloc[-2])
-            self.vix_1d_change_pct = (self.vix / prev - 1.0) if prev else None
-            self.dates.append(str(h.index[-1].date()))
+        if len(h) < 2:  # 빈/1행 프레임도 데이터 문제 — stale 로 표시
+            self.stale.append("yf:vix")
+            return
+        self.vix = float(h["Close"].iloc[-1])
+        prev = float(h["Close"].iloc[-2])
+        self.vix_1d_change_pct = (self.vix / prev - 1.0) if prev else None
+        self.dates.append(str(h.index[-1].date()))
 
     def _vix3m(self, ttl: float) -> None:
         try:
@@ -149,8 +151,10 @@ class _Yf:
         except Exception:
             self.stale.append("yf:vix3m")
             return
-        if not h.empty:
-            self.vix3m = float(h["Close"].iloc[-1])
+        if h.empty:
+            self.stale.append("yf:vix3m")
+            return
+        self.vix3m = float(h["Close"].iloc[-1])
 
     def _spx(self, ttl: float) -> None:
         try:
@@ -159,6 +163,7 @@ class _Yf:
             self.stale.append("yf:spx")
             return
         if h.empty:
+            self.stale.append("yf:spx")
             return
         c = h["Close"]
         self.spx_last = float(c.iloc[-1])

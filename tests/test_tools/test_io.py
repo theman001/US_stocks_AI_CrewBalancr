@@ -58,3 +58,24 @@ def test_clear_cache() -> None:
     calls = {"n": 0}
     _io.cached("k3", 24, lambda: calls.__setitem__("n", calls["n"] + 1) or 1)
     assert calls["n"] == 1
+
+
+def test_cached_json_regenerates_on_corrupt_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"n": 0}
+
+    class FakeResp:
+        def raise_for_status(self) -> None: ...
+        def json(self) -> dict[str, Any]:
+            return {"v": 1}
+
+    def fake_get(*_a: Any, **_k: Any) -> FakeResp:
+        calls["n"] += 1
+        return FakeResp()
+
+    monkeypatch.setattr(_io.requests, "get", fake_get)
+    assert _io.cached_json("https://x.test/corrupt")["v"] == 1
+    # 캐시 파일을 truncate — 다음 호출은 조용히 재생성해야 (예외 전파 금지)
+    path = _io._cache_path("https://x.test/corrupt?{}", ".json")
+    path.write_text("{not json", encoding="utf-8")
+    assert _io.cached_json("https://x.test/corrupt")["v"] == 1
+    assert calls["n"] == 2
