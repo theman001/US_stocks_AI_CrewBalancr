@@ -18,13 +18,20 @@ BENCH_TICKERS = sorted({t for alloc in BENCHMARKS.values() for t in alloc})
 
 
 def contribute(state: BenchmarkState, usd: float, prices: dict[str, float]) -> None:
-    """`usd` 를 각 벤치마크 배분대로 매수 (해당 티커 체결가 있는 경우만)."""
+    """`usd` + 이월된 미체결분을 각 벤치마크 배분대로 매수.
+
+    한 티커라도 가격이 없으면 그 벤치마크의 전체 투입액을 `pending_usd` 로 이월 —
+    일부만 사서 영구 저투자되는 것(Gate B 비교 왜곡)을 막는다 (4-post-review).
+    """
     for name, alloc in BENCHMARKS.items():
         book = state.holdings.setdefault(name, {})
+        available = usd + state.pending_usd.get(name, 0.0)
+        if any(not prices.get(t) or prices[t] <= 0 for t in alloc):
+            state.pending_usd[name] = available  # 완전 체결 가능할 때까지 보류
+            continue
         for ticker, w in alloc.items():
-            px = prices.get(ticker)
-            if px and px > 0:
-                book[ticker] = book.get(ticker, 0.0) + usd * w / px
+            book[ticker] = book.get(ticker, 0.0) + available * w / prices[ticker]
+        state.pending_usd[name] = 0.0
 
 
 def mark_to_market(
@@ -34,7 +41,7 @@ def mark_to_market(
     for name, book in state.holdings.items():
         if any(t not in prices for t in book):
             continue  # 부분 가격 → 유령 급락 방지, 그날은 기록하지 않음
-        nav = sum(sh * prices[t] for t, sh in book.items())
+        nav = sum(sh * prices[t] for t, sh in book.items()) + state.pending_usd.get(name, 0.0)
         point = NavPoint(date=date, nav_usd=round(nav, 2), nav_krw=round(nav * fx_rate, 2))
         hist = state.history.setdefault(name, [])
         if hist and hist[-1].date == date:

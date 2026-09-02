@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -19,6 +20,17 @@ def _path(name: str) -> Path:
     return d / name
 
 
+def _atomic_write(name: str, text: str) -> None:
+    """temp 파일에 쓰고 os.replace — 쓰다 죽어도 기존 파일(포트폴리오 이력)이 안 깨진다."""
+    p = _path(name)
+    tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, p)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def load_model[M: BaseModel](name: str, model: type[M]) -> M | None:
     p = _path(name)
     if not p.exists():
@@ -30,7 +42,7 @@ def load_model[M: BaseModel](name: str, model: type[M]) -> M | None:
 
 
 def save_model(name: str, obj: BaseModel) -> None:
-    _path(name).write_text(obj.model_dump_json(indent=2))
+    _atomic_write(name, obj.model_dump_json(indent=2))
 
 
 def load_list[M: BaseModel](name: str, model: type[M]) -> list[M]:
@@ -45,6 +57,4 @@ def load_list[M: BaseModel](name: str, model: type[M]) -> list[M]:
 
 
 def save_list(name: str, items: list[BaseModel]) -> None:
-    _path(name).write_text(
-        json.dumps([x.model_dump() for x in items], indent=2, ensure_ascii=False)
-    )
+    _atomic_write(name, json.dumps([x.model_dump() for x in items], indent=2, ensure_ascii=False))

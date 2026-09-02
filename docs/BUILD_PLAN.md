@@ -63,6 +63,15 @@
 - [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정
 - [ ] **4-7 (추후) O-D** — 학습형 랭킹 가중 (채점 항목 ≥ ~150)
 
+## Pre-Phase-4 감사 (독립 `/code-review`)
+
+- [x] **money-path** — `broker/` · `portfolio_math` · `pipeline` · `main` · `state`. 7건 수정:
+  TWR 기여일=NavPoint일 정렬 · 섀도 레짐 이중계산 방지(`_persist_regime` 이동) · `state`
+  atomic write · 벤치 결측 leg `pending_usd` 이월 · n_orders/docstring/중복호출.
+  검토: [reviews/money-path-codereview.md](reviews/money-path-codereview.md). 251 tests.
+- [ ] **guardrails/pm** — `agents/guardrails.py` · `agents/pm.py` (하드 안전망)
+- [ ] **regime/screen/score** — `tools/regime.py` · `screener.py` · `scoring.py` · `allocation.py`
+
 ## 배포 (병행)
 
 - [ ] docker-compose.yml — OMV8 단일 스택 (build.context git URL + configs 인라인 crontab + supercronic)

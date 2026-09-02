@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from aegisvest import state
 from aegisvest.config import get_settings
 from aegisvest.schemas import CrisisState, RegimeHistoryPoint
@@ -38,3 +40,17 @@ def test_corrupt_model_degrades_to_none() -> None:
 def test_corrupt_list_degrades_to_empty() -> None:
     _write_raw("badlist.json", "[[[")
     assert state.load_list("badlist.json", RegimeHistoryPoint) == []
+
+
+def test_atomic_write_preserves_prior_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    state.save_model("cs.json", CrisisState(active=True))
+
+    def _boom(*_a: object) -> None:
+        raise RuntimeError("kill")
+
+    monkeypatch.setattr(state.os, "replace", _boom)  # os.replace 직전 크래시 시뮬
+    with pytest.raises(RuntimeError):
+        state.save_model("cs.json", CrisisState(active=False))
+    got = state.load_model("cs.json", CrisisState)
+    assert got is not None and got.active is True  # 이전 값 보존
+    assert list(get_settings().state_dir.glob("cs.json.*.tmp")) == []  # temp 정리됨

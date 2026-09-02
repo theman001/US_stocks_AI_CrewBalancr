@@ -345,6 +345,10 @@ class BenchmarkState(BaseModel):
     holdings: dict[str, dict[str, float]] = Field(
         default_factory=dict, description="benchmark명 → {ticker: shares}"
     )
+    pending_usd: dict[str, float] = Field(
+        default_factory=dict,
+        description="benchmark명 → 가격 결측으로 미체결된 현금 (다음 납입 시 재시도)",
+    )
     history: dict[str, list[NavPoint]] = Field(default_factory=dict)
 
 

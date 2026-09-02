@@ -46,3 +46,23 @@ def test_partial_pricing_skips_day() -> None:
 
 def test_bench_tickers_list() -> None:
     assert set(bm.BENCH_TICKERS) == {"SPY", "AGG", "ACWI"}
+
+
+def test_missing_leg_price_carries_cash_forward() -> None:
+    st = BenchmarkState()
+    bm.contribute(st, 1000.0, {"SPY": 500.0, "ACWI": 200.0})  # AGG 누락
+    assert "AGG" not in st.holdings.get("sixtyforty", {})
+    assert st.pending_usd["sixtyforty"] == pytest.approx(1000.0)  # 60/40 전체 이월
+    assert st.holdings["spy"]["SPY"] == pytest.approx(2.0)  # SPY 벤치는 정상 체결
+
+    bm.contribute(st, 1000.0, {"SPY": 500.0, "AGG": 100.0, "ACWI": 200.0})  # 다음 납입, 가격 복구
+    assert st.pending_usd["sixtyforty"] == pytest.approx(0.0)
+    assert st.holdings["sixtyforty"]["SPY"] == pytest.approx(2000.0 * 0.6 / 500.0)  # 이월분+신규
+    assert st.holdings["sixtyforty"]["AGG"] == pytest.approx(2000.0 * 0.4 / 100.0)
+
+
+def test_pending_cash_counted_in_nav() -> None:
+    st = BenchmarkState()
+    bm.contribute(st, 1000.0, {"SPY": 500.0, "ACWI": 200.0})  # 60/40 이월
+    out = bm.mark_to_market(st, {"SPY": 500.0, "AGG": 100.0, "ACWI": 200.0}, "2026-09-08", 1400.0)
+    assert out["sixtyforty"].nav_usd == pytest.approx(1000.0)  # 유령 급락 없음 (전액 pending)

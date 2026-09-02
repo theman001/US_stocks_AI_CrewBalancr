@@ -17,9 +17,13 @@ _RF_ANNUAL = 0.042
 
 
 def _daily_returns(history: list[NavPoint], contributions: list[Contribution]) -> list[float]:
+    # 기여를 그 날짜 이후 첫 NavPoint 에 귀속 (정확 일치가 정상; 날짜 규약 어긋나도 유실 방지).
+    nav_dates = sorted(p.date for p in history)
     cf_by_date: dict[str, float] = {}
     for c in contributions:
-        cf_by_date[c.date] = cf_by_date.get(c.date, 0.0) + c.usd
+        target = next((d for d in nav_dates if d >= c.date), nav_dates[-1] if nav_dates else None)
+        if target is not None:
+            cf_by_date[target] = cf_by_date.get(target, 0.0) + c.usd
     rets: list[float] = []
     for prev, cur in pairwise(history):
         if prev.nav_usd <= 0:

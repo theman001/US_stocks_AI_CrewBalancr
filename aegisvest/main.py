@@ -52,13 +52,32 @@ def _bump_cooldown(pf: PaperPortfolio, executed: list[Order], held: bool) -> Non
     }
 
 
-def _contribution_due(pf: PaperPortfolio, today: dt.date) -> bool:
+def _contribution_due(pf: PaperPortfolio, ref: dt.date) -> bool:
+    """`ref` = 이번 회차 기여를 스탬프할 날짜 (거래일 기준). 달이 바뀌면 납입."""
     if get_settings().monthly_contribution_krw <= 0:
         return False
     if not pf.contributions:
         return True
     last = dt.date.fromisoformat(pf.contributions[-1].date)
-    return (last.year, last.month) != (today.year, today.month)
+    return (last.year, last.month) != (ref.year, ref.month)
+
+
+def _maybe_contribute(
+    shadow: ShadowState,
+    bench: BenchmarkState,
+    bench_prices: dict[str, float],
+    stamp: str,
+    fx: float,
+) -> float:
+    """월 납입이 도래했으면 org·det 포트 + 벤치에 동일 현금흐름 반영. 반환 = USD 납입액."""
+    if not _contribution_due(shadow.organization, dt.date.fromisoformat(stamp)):
+        return 0.0
+    krw = get_settings().monthly_contribution_krw
+    c = paper.add_contribution(shadow.organization, krw, fx, stamp)
+    paper.add_contribution(shadow.deterministic, krw, fx, stamp)
+    bm.contribute(bench, c.usd, bench_prices)
+    _log.info("적금 납입 ₩%.0f → $%.2f (환율 %.1f)", c.krw, c.usd, c.fx_rate)
+    return c.usd
 
 
 def _fx_rate() -> float:
@@ -101,8 +120,8 @@ def _execute_and_mark(
     fx: float,
     mark_date: str,
 ) -> ExecutionResult | None:
-    org_pf, det_pf = shadow.organization, shadow.deterministic
     """조직·결정론 포트 각각 체결 후 mark-to-market (+벤치). 조직 execution 만 반환."""
+    org_pf, det_pf = shadow.organization, shadow.deterministic
     org_exec: ExecutionResult | None = None
     if not held and org_orders:
         org_exec = paper.execute(org_pf, org_orders, prices)
@@ -139,19 +158,16 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     history = load_list("regime_history.json", RegimeHistoryPoint)
     crisis_state = load_model("crisis_state.json", CrisisState) or CrisisState()
 
+    # NAV·기여·벤치 전부 이 날짜(직전 미국장 마감일)로 스탬프 — TWR 이 기여를 수익으로
+    # 오인하지 않으려면 Contribution.date == NavPoint.date 여야 한다 (4-post-review).
+    mkt_date = latest_close_date(float(s.cache_ttl_hours))
+    bench_prices = _bench_prices()
     fx = _fx_rate()
-    contribution_usd = 0.0
-    if _contribution_due(org_pf, today):
-        c = paper.add_contribution(org_pf, s.monthly_contribution_krw, fx, run_id)
-        paper.add_contribution(det_pf, s.monthly_contribution_krw, fx, run_id)  # 동일 현금흐름
-        contribution_usd = c.usd
-        bm.contribute(bench, contribution_usd, _bench_prices())
-        _log.info("적금 납입 ₩%.0f → $%.2f (환율 %.1f)", c.krw, c.usd, c.fx_rate)
+    contribution_usd = _maybe_contribute(shadow, bench, bench_prices, mkt_date or run_id, fx)
 
     pr = run_pipeline(
         portfolio=org_pf, regime_history=history, crisis_state=crisis_state, mode=s.mode
     )
-    _persist_regime(history, pr.regime, pr.as_of)
 
     crew: CrewOutcome | None = None
     if s.deepseek_api_key:
@@ -170,6 +186,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     org_orders = crew.org_orders if (use_org and crew) else pr.orders
 
     # ── 결정론 병행 시뮬 (섀도 A/B). 크루 없으면 org 와 동일 경로. ──
+    # 주의: regime_history 는 아직 오늘 포인트 미포함이어야 org·det 가 동일 입력을 본다.
     if crew is not None:
         det_pr = run_pipeline(
             portfolio=det_pf, regime_history=history, crisis_state=crisis_state, mode=s.mode
@@ -178,7 +195,10 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     else:
         det_orders = pr.orders
 
-    all_prices = {**pr.prices, **_bench_prices()}
+    _persist_regime(history, pr.regime, pr.as_of)  # 이제 append (org·det 파이프라인 모두 실행 후)
+
+    mark_date = mkt_date or pr.as_of
+    all_prices = {**pr.prices, **bench_prices}
     execution = _execute_and_mark(
         shadow,
         bench,
@@ -187,7 +207,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
         all_prices,
         held=held,
         fx=fx,
-        mark_date=latest_close_date(float(s.cache_ttl_hours)) or pr.as_of,
+        mark_date=mark_date,
     )
     if execution is not None:
         _log.info("체결(조직) %d건 · %s", len(execution.fills), "조직틸트" if use_org else "결정론")
@@ -229,7 +249,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
         contribution_usd=round(contribution_usd, 2),
         nav_usd=nav.nav_usd,
         nav_krw=nav.nav_krw,
-        n_orders=len(pr.orders),
+        n_orders=len(org_orders),  # 실제 체결 대상 (조직 틸트 시 crew.org_orders)
         n_fills=len(execution.fills) if execution else 0,
         regime=pr.regime.regime.value,
         crisis_active=pr.regime.crisis_active,

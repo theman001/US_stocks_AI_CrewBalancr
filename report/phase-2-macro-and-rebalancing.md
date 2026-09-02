@@ -297,6 +297,12 @@ docker compose run --rm aegisvest python -m aegisvest.backtest --from 2005
 
 **벤치마크 3종 병행 추적** (동일 현금흐름 시뮬): `SPY` (주 기준), `60/40` (SPY 60 + AGG 40), `ACWI` (전세계).
 
+> **⚠️ money-path 감사 수정 (2026-09-02).** 지표는 **시간가중수익률(TWR)** — 적금 납입을
+> 수익으로 계상하지 않으려면 `Contribution.date == NavPoint.date` 여야 한다. `main.run()` 이
+> 둘 다 직전 미국장 마감일(`latest_close_date`)로 스탬프. 벤치마크는 가격 결측 leg 발생 시
+> 해당 벤치 전체 투입액을 `pending_usd` 로 이월(부분매수로 영구 저평가 방지). 상세:
+> `docs/reviews/money-path-codereview.md`.
+
 ### 6.3 전략 성격 전제
 
 방어형 전략 — 장기 강세장에서는 SPY보다 총수익이 **뒤처지는 게 정상**. 목표는 "시장 초과수익"이 아니라 **"수익 대부분을 훨씬 적은 낙폭으로"**. 합격선도 그 기준.

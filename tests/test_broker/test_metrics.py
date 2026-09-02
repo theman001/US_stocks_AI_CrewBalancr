@@ -33,6 +33,14 @@ def test_contribution_not_counted_as_gain() -> None:
     assert s["total_return"] == pytest.approx(0.0, abs=1e-9)
 
 
+def test_contribution_date_ahead_of_navpoint_still_matched() -> None:
+    # 기여일이 NavPoint 날짜보다 뒤여도 (날짜 규약 어긋남) 수익으로 오인하지 않는다
+    hist = _hist([("2026-01-02", 100.0), ("2026-01-09", 150.0)])
+    contribs = [Contribution(date="2026-01-11", krw=70000, usd=50.0, fx_rate=1400.0)]
+    s = performance_stats(hist, contribs)
+    assert s["total_return"] == pytest.approx(0.0, abs=1e-9)  # 마지막 NavPoint 에 귀속
+
+
 def test_full_stats_on_year_of_data() -> None:
     v = 100.0
     navs: list[tuple[str, float]] = [(str(dt.date(2026, 1, 1)), v)]

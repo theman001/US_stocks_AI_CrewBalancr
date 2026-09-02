@@ -132,6 +132,23 @@ def test_regime_history_persisted(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res.report_path.endswith("report.md")
 
 
+def test_shadow_pipelines_see_same_regime_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """org·det run_pipeline 이 동일 regime_history 를 봐야 한다 (오늘 포인트 append 전)."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    main.get_settings.cache_clear()
+    monkeypatch.setattr(org_mod, "run_organization", lambda pr, **kw: _crew("APPROVED"))
+    seen: list[int] = []
+
+    def spy(**kw: object) -> object:
+        hist = kw.get("regime_history") or []
+        seen.append(len(hist))  # type: ignore[arg-type]
+        return _pipeline()
+
+    monkeypatch.setattr(main, "run_pipeline", spy)
+    main.run()
+    assert len(seen) == 2 and seen[0] == seen[1]  # 두 파이프라인 동일 입력
+
+
 def test_contribution_due_logic() -> None:
     pf = PaperPortfolio()
     assert main._contribution_due(pf, dt.date(2026, 9, 6)) is True
