@@ -17,6 +17,8 @@ CrewAI + DeepSeek API로 미국 주식(S&P500/NASDAQ)을 운용하는 자율형 
 Phase 3 완료 (3a 코어, 3a-11 보류, 3b 조직 완편). **Phase 4 빌드 완료** (4-0~4-5:
 태깅·evaluate·⑨ Reviewer·RAG 저장·recall+주입·거버넌스 CLI — 합성데이터로 테스트).
 4-6 튜닝·4-7 O-D 는 실데이터(~3개월) 후. 가동도 모의투자 데이터 축적 후. `docs/BUILD_PLAN.md` 참조.
+독립 `/code-review` 7패스 완료 (전 `aegisvest/`, ~43 수정 — TWR 기여일·섀도 레짐 이중계산·
+guardrail 우회·state atomic 등). `docs/reviews/*-codereview.md`. 274 tests.
 포트 상태는 `state/shadow.json` (organization = 실제, deterministic = 병행 시뮬).
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.
 `crewai` 1.15, `chromadb`+`FlagEmbedding`(bge-m3) 설치됨 (`uv sync --extra agents --extra diary`).
