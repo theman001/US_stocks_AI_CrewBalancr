@@ -283,7 +283,7 @@ class NavPoint(BaseModel):
 
 
 class PaperPortfolio(BaseModel):
-    """state/paper_portfolio.json — 모의투자 가상 원장. report/phase-3 §7.1."""
+    """모의투자 가상 원장 (state/shadow.json 안에 deterministic·organization 2개). phase-3 §7.1."""
 
     cash_usd: float = 0.0
     positions: dict[str, PaperPosition] = Field(default_factory=dict)
@@ -362,7 +362,9 @@ class CrisisState(BaseModel):
 
 
 class CrisisFlag(BaseModel):
-    """state/crisis_flag.json — 감시견이 쓰고 main.py(3a-10)가 읽어 크루를 즉시 실행."""
+    """state/crisis_flag.json — 감시견의 알림 중복방지 latch (신규 발동 때만 알림·트리거).
+    크루는 감시견이 `main.run(trigger="crisis")` 를 직접 인프로세스 호출 (main 은 이 파일 안 읽음).
+    """
 
     active: bool
     reason: str | None = None
@@ -600,7 +602,9 @@ class WeeklyRunResult(BaseModel):
 
     run_id: str
     trigger: str = Field(description="scheduled | crisis")
-    dry_run: bool = Field(default=False, description="DRY_RUN — 상태 미저장·미체결·알림 스킵")
+    dry_run: bool = Field(
+        default=False, description="DRY_RUN — state/ 무접촉(일기·RAG·회상 포함)·미체결·알림 스킵"
+    )
     held: bool = Field(description="CIO HOLD 로 매매 스킵")
     crew_ran: bool
     contribution_usd: float = 0.0

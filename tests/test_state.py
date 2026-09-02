@@ -32,14 +32,18 @@ def _write_raw(name: str, text: str) -> None:
     (d / name).write_text(text)
 
 
-def test_corrupt_model_degrades_to_none() -> None:
+def test_corrupt_model_degrades_to_none_and_quarantines() -> None:
     _write_raw("bad.json", "{not json")
     assert state.load_model("bad.json", CrisisState) is None
+    d = get_settings().state_dir
+    assert not (d / "bad.json").exists()  # 다음 save 가 덮어쓰지 못하게 격리
+    assert (d / "bad.json.corrupt").read_text() == "{not json"  # 포렌식용 보존
 
 
 def test_corrupt_list_degrades_to_empty() -> None:
     _write_raw("badlist.json", "[[[")
     assert state.load_list("badlist.json", RegimeHistoryPoint) == []
+    assert (get_settings().state_dir / "badlist.json.corrupt").exists()
 
 
 def test_atomic_write_preserves_prior_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:

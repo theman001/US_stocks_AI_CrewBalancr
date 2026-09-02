@@ -22,6 +22,7 @@ from aegisvest.agents.crew import (
     AnalystBundle,
     _agents,
     _cfg,
+    _diary_snapshot,
     _num_payload,
     _out,
     build_inputs,
@@ -312,16 +313,6 @@ def run_organization(
         diary_ids=diary_ids,
         llm_used=llm is None,
     )
-
-
-def _diary_snapshot(pr: PipelineResult) -> dict[str, float | int | str | None]:
-    snap = pr.macro.model_dump(exclude={"stale_fields"})
-    snap.update(
-        regime=pr.regime.regime.value,
-        score_smooth=round(pr.regime.score_smooth, 2),
-        nav_usd=pr.nav_usd,
-    )
-    return snap
 
 
 def _log_org_diary(

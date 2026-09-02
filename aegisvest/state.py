@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -13,11 +15,21 @@ from pydantic import BaseModel
 
 from aegisvest.config import get_settings
 
+_log = logging.getLogger("aegisvest.state")
+
 
 def _path(name: str) -> Path:
     d = get_settings().state_dir
     d.mkdir(parents=True, exist_ok=True)
     return d / name
+
+
+def _quarantine(p: Path, err: object) -> None:
+    """존재하는 파일이 파싱 불가 — .corrupt 로 보존하고 크게 로깅. 다음 save 가 덮어써
+    복구 불능이 되는 것을 막는다 (부재는 신규로 정상 처리, 여기 안 옴)."""
+    _log.error("state/%s 파싱 실패 — %s.corrupt 로 격리, 빈 상태로 재생성: %s", p.name, p.name, err)
+    with contextlib.suppress(OSError):
+        p.rename(p.with_name(p.name + ".corrupt"))
 
 
 def _atomic_write(name: str, text: str) -> None:
@@ -37,7 +49,8 @@ def load_model[M: BaseModel](name: str, model: type[M]) -> M | None:
         return None
     try:
         return model.model_validate_json(p.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
+    except (ValueError, OSError) as e:
+        _quarantine(p, e)
         return None
 
 
@@ -52,7 +65,8 @@ def load_list[M: BaseModel](name: str, model: type[M]) -> list[M]:
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))
         return [model.model_validate(x) for x in raw]
-    except (ValueError, OSError, TypeError):
+    except (ValueError, OSError, TypeError) as e:
+        _quarantine(p, e)
         return []
 
 

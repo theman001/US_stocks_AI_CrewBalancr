@@ -28,9 +28,9 @@
 
 ## 독립 `/code-review` 감사
 
-Pre-Phase-4 7패스 + 4-post + 감사 이후 추가분(post-e2e) = 8패스, 전 `aegisvest/` 커버.
-~50 findings / ~48 수정 — 대부분 "조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로
-Gate B 성공 판정을 오염시킬 부류.
+Pre-Phase-4 7패스 + 4-post + post-e2e + whole-integration = 9패스, 전 `aegisvest/` 커버.
+~58 findings / ~55 수정 — 대부분 "조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로
+Gate B 성공 판정을 오염시킬 부류. whole-integration 은 섹터 간 연결부 전담.
 
 | 패스 | 대상 |
 |---|---|
@@ -42,6 +42,7 @@ Gate B 성공 판정을 오염시킬 부류.
 | [scoring-derived](scoring-derived-codereview.md) | scoring · _derived · breadth · universe · config (폭 4w 분모 · roic 결측 · piotroski 부분점수) |
 | [4-post](4-post-codereview.md) | 4-1~4-5 빌트인 `/code-review` (동시성 fcntl 락 · _normalize_regime · 회상 guardrail) |
 | [post-e2e](post-e2e-codereview.md) | 감사 이후 추가분 (ponytail·DRY_RUN·E2E·배당 rate) — E2E 시간의존 · docker 볼륨 섀도 · recall_log 원자성 |
+| [whole-integration](whole-integration-codereview.md) | **섹터 간 연결부** 전체 검토 — regime_history 절삭이 regime_call 채점창 침범 · 일기 save 비원자 · state 손상 격리 · _diary_snapshot 통합 |
 
 ## 그 외
 

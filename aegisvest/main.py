@@ -36,7 +36,7 @@ from aegisvest.tools.fx import usd_krw
 from aegisvest.tools.market_data import market_data
 
 _log = logging.getLogger("aegisvest.main")
-_MAX_HISTORY = 40
+_MAX_HISTORY = 70  # watchdog._MAX_HISTORY 와 동일 — regime_call 12주 채점창 커버
 
 
 def _bump_cooldown(pf: PaperPortfolio, executed: list[Order], held: bool) -> None:

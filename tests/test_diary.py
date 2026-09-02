@@ -36,6 +36,23 @@ def test_entry_roundtrip() -> None:
     assert reloaded[0].outcome is None  # Phase 4 append 대상
 
 
+def test_load_entries_dedups_by_id_keeping_last() -> None:
+    # 같은 날 crisis 재실행 → 동일 run_id/agent/claim_type → 동일 entry_id 두 번 append
+    common = dict(
+        run_id="2026-09-06",
+        agent="Macro Strategist",
+        claim_type="regime_call",
+        reasoning="r",
+        data_snapshot={},
+        decision={"regime": "NEUTRAL"},
+    )
+    diary.log(claim="스케줄 실행", **common)  # type: ignore[arg-type]
+    diary.log(claim="crisis 재실행 (최신)", **common)  # type: ignore[arg-type]
+    entries = diary.load_entries()
+    assert len(entries) == 1
+    assert entries[0].claim == "crisis 재실행 (최신)"  # 마지막 append 유지
+
+
 def test_regime_call_two_horizons() -> None:
     dates = evaluate_dates(dt.date(2026, 9, 6), "regime_call", 12)
     assert dates == ["2026-10-04", "2026-11-29"]  # +4주, +12주

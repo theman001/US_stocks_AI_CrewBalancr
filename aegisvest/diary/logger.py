@@ -21,6 +21,7 @@ from aegisvest.diary.schema import (
     evaluate_dates,
 )
 from aegisvest.schemas import DiaryEntry, ToolError
+from aegisvest.tools._io import _write_atomic
 
 _FILE = "diary/entries.jsonl"
 _log = logging.getLogger("aegisvest.diary")
@@ -103,16 +104,20 @@ def load_entries() -> list[DiaryEntry]:
     p = _path()
     if not p.exists():
         return []
-    out: list[DiaryEntry] = []
+    # id 로 dedup — 같은 날 crisis 재실행이 스케줄분과 같은 entry_id 를 append 할 수 있다.
+    # 마지막(최신 append) 을 유지, 원래 위치는 보존 (dict 재대입).
+    by_id: dict[str, DiaryEntry] = {}
     for raw in p.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line:
             continue
         try:
-            out.append(DiaryEntry.model_validate_json(line))
+            e = DiaryEntry.model_validate_json(line)
         except ValueError:
             _log.warning("일기 라인 파싱 실패 — 건너뜀")
-    return out
+            continue
+        by_id[e.id] = e
+    return list(by_id.values())
 
 
 def save_entries(entries: list[DiaryEntry]) -> None:
@@ -125,7 +130,7 @@ def save_entries(entries: list[DiaryEntry]) -> None:
     """
     try:
         text = "\n".join(e.model_dump_json() for e in entries)
-        _path().write_text(text + ("\n" if entries else ""), encoding="utf-8")
+        _write_atomic(_path(), (text + ("\n" if entries else "")).encode("utf-8"))
     except OSError as e:
         _log.warning("일기 갱신 실패: %s", e)
 

@@ -168,6 +168,10 @@ def run_pipeline(
     universe: str = "combined",
     mode: str = "paper",
 ) -> PipelineResult:
+    # `pending_contribution_usd`: 아직 portfolio.cash_usd 에 없는 신규 현금 — cash_flow_rebalance
+    # 에서 현금하한을 안 받고 전액 배치된다 (백테스트·데모용). main 은 이 경로를 안 쓴다:
+    # _maybe_contribute 가 체결 전에 cash_usd 에 선반영하고 여기 0 을 넘긴다 (broker 가 쓸 현금이
+    # 실제로 있어야 하므로). 정상 운영에선 현금 ≈ 하한이라 두 계약이 같은 결과를 낸다.
     notes: list[str] = []
     universe_tickers = get_universe(universe)
 
@@ -253,6 +257,9 @@ def run_pipeline(
 
     order_prices = {**held_prices, **_prices_for([p.ticker for p in sizing.positions])}
     orders = build_orders(sizing, portfolio, order_prices, plan)
+    priced_out = [p.ticker for p in sizing.positions if p.ticker not in order_prices]
+    if priced_out:  # sizing 이 예산 배정했으나 가격 결측 → 그 몫은 유휴현금, 다음 주 재시도
+        notes.append(f"타깃 가격 결측 {priced_out} — 이번 회차 미체결")
 
     return PipelineResult(
         as_of=macro.as_of,

@@ -90,8 +90,8 @@
   `_bool_env` 빈값 · 음수 PE 밸류 최고점 · FMP 점표기 미정규화 · 배당 연속성 미확인.
   검토: [reviews/scoring-derived-codereview.md](reviews/scoring-derived-codereview.md). 274 tests.
 
-> **감사 완료** — 독립 `/code-review` 8 패스 (4-post-review + post-e2e 포함), 전 `aegisvest/`
-> 커버, ~50 findings / ~48 수정. `docs/reviews/*-codereview.md` + `docs/reviews/README.md`.
+> **감사 완료** — 독립 `/code-review` 9 패스 (4-post + post-e2e + whole-integration 포함),
+> 전 `aegisvest/` 커버, ~58 findings / ~55 수정. `docs/reviews/README.md` 인덱스.
 
 - [x] **E2E 통합 테스트** — `tests/test_e2e.py`: 실 `run_pipeline`(데이터 소스만 mock) +
   실 `run_organization`(ScriptedLLM) + 실 일기 체인(로깅→evaluate→reviewer→rag.backfill→
@@ -105,6 +105,11 @@
   노트 전부 스킵, `state/` 무접촉) + **골든/데스크로스 상태 기반** (`spx_sma_50 < spx_sma_200`,
   `spx_sma_*_prev` 제거) + crisis 픽스처 현실화 (`death_cross` 발동).
   검토: [reviews/post-e2e-codereview.md](reviews/post-e2e-codereview.md). 282 passed.
+- [x] **전체 통합 검토** — 섹터 간 연결부 중심 (`whole-integration`). 8건 수정: `_MAX_HISTORY`
+  40→70 (regime_history 절삭이 regime_call 12주 채점창 침범) · `save_entries` atomic ·
+  state 손상 파일 `.corrupt` 격리 · `_diary_snapshot` 통합 · dead param 주석 · stale docstring 3 ·
+  가격결측 타깃 note · 일기 id dedup. #2(결정론 constraints 미강제) 는 보류.
+  검토: [reviews/whole-integration-codereview.md](reviews/whole-integration-codereview.md). 283 passed.
 
 ## 배포 (병행)
 

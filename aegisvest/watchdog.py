@@ -35,7 +35,9 @@ from aegisvest.tools.regime import regime_score
 _HISTORY = "regime_history.json"
 _CRISIS_STATE = "crisis_state.json"
 _CRISIS_FLAG = "crisis_flag.json"
-_MAX_HISTORY = 40  # EMA span 5 에 충분
+# EMA span 5 에는 40이면 충분하나, diary/evaluate._score_regime_call 이 regime_call 12주
+# 채점창(≈60거래일, diary/schema._HORIZON_SCHEDULE)을 이 파일에서 재구성한다 → 12주 + 여유.
+_MAX_HISTORY = 70
 
 _log = logging.getLogger("aegisvest.watchdog")
 

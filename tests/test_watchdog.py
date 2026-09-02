@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 
 from aegisvest import state, watchdog
@@ -134,14 +136,17 @@ def test_dry_run_computes_but_persists_nothing(
 
 @pytest.mark.usefixtures("alerts")
 def test_history_capped(monkeypatch: pytest.MonkeyPatch) -> None:
-    seed = [RegimeHistoryPoint(date=f"2026-07-{d:02d}", total_score=1) for d in range(1, 30)]
+    base = dt.date(2026, 4, 1)
+    seed = [  # _MAX_HISTORY 를 넉넉히 초과하는 시드
+        RegimeHistoryPoint(date=(base + dt.timedelta(days=d)).isoformat(), total_score=1)
+        for d in range(watchdog._MAX_HISTORY + 25)
+    ]
     state.save_list("regime_history.json", seed)
-    _patch_macro(monkeypatch, macro(as_of="2026-09-01"))
-    for i in range(20):
+    for i in range(5):
         _patch_macro(monkeypatch, macro(as_of=f"2026-09-{i + 1:02d}"))
         watchdog.run()
     hist = state.load_list("regime_history.json", RegimeHistoryPoint)
-    assert len(hist) <= watchdog._MAX_HISTORY
+    assert len(hist) == watchdog._MAX_HISTORY  # 정확히 상한으로 절삭
 
 
 def test_mark_nav_guard_uses_marked_portfolio_and_carries_fx(
