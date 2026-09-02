@@ -93,6 +93,12 @@
 > **감사 완료** — 독립 `/code-review` 7 패스 (4-post-review 포함), 전 `aegisvest/` 커버,
 > ~46 findings / ~43 수정. `docs/reviews/*-codereview.md`.
 
+- [x] **E2E 통합 테스트** — `tests/test_e2e.py`: 실 `run_pipeline`(데이터 소스만 mock) +
+  실 `run_organization`(ScriptedLLM) + 실 일기 체인(로깅→evaluate→reviewer→rag.backfill→
+  2차 실행 회상 주입). 모듈 단위 테스트가 못 잡는 크로스모듈 배선(감사 버그 부류) 검증.
+  Layer 0 규율(일기 태그 = 결정론 레짐, LLM 주장 아님) + 크루 실패 흡수 + DRY_RUN 무저장.
+  3 tests. 검토: [reviews/e2e.md](reviews/e2e.md). 279 passed.
+
 ## 배포 (병행)
 
 - [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
