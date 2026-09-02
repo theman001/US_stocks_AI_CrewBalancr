@@ -77,23 +77,6 @@
   low_confidence 시 score_smooth 외삽 억제 · RS 컷 데이터운 의존 제거 · EMA 같은날 이중계산 ·
   CRISIS 해제 공휴일 반영 · 백워데이션 `>=` 명세 일치 · 고위험캡 스필 mid.
   검토: [reviews/regime-screen-codereview.md](reviews/regime-screen-codereview.md). 261 tests.
-
-## 배포 (병행)
-
-- [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
-  배치를 `evaluate && reviewer && rag` 체이닝, `mem_limit 4g`(bge-m3 상주), `HF_HOME` 볼륨.
-  Dockerfile 이 빌드 시 bge-m3 가중치 베이크. `DRY_RUN` 실제 배선 (main: 상태 미저장·미체결·
-  알림 스킵, 기본 true — `.env` 에서 false 로 가동).
-- [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
-- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64) — **docker build 는 이 개발환경에 docker 없어 미검증**
-
-## 명세 미해결 (개발 중 확정)
-
-- [x] **phase-1 필터 임계값 재보정 승인됨** (2026-09) — config/filters/*.yaml, report/phase-1 §A 노트, reviews/3a-5.md
-- [ ] 나무증권 해외주식 세제 확정 → phase-2 §5 / phase-3 §9 잠정 규칙 대체
-- [ ] 성공 판정 합격선 최종 수치 (샤프 임계, 관찰 기간)
-- [x] NewsScraper 소스: Google News + Yahoo RSS (FMP 뉴스 무료 제한)
-- [ ] 백테스트 Sharadar 구독 시점 (Gate A 최종 검증 직전)
 - [x] **runtime** — `watchdog.py` · `report.py` · `constraints.py` · `state.py`. 6건 수정:
   벤치마크 기여 미보정(Gate B 왜곡) · read/write 인코딩 미지정(C 로케일 상태유실) ·
   `_mark_nav` guard 가 빈 포트 봄 · `max_change_per_rebal` 게이트가 메인 경로서 미작동 ·
@@ -109,3 +92,58 @@
 
 > **감사 완료** — 독립 `/code-review` 7 패스 (4-post-review 포함), 전 `aegisvest/` 커버,
 > ~46 findings / ~43 수정. `docs/reviews/*-codereview.md`.
+
+## 배포 (병행)
+
+- [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
+  배치를 `evaluate && reviewer && rag` 체이닝, `mem_limit 4g`(bge-m3 상주), `HF_HOME` 볼륨.
+  Dockerfile 이 빌드 시 bge-m3 가중치 베이크. `DRY_RUN` 실제 배선 (main: 상태 미저장·미체결·
+  알림 스킵, 기본 true — `.env` 에서 false 로 가동).
+- [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
+- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64) — **docker build 는 이 개발환경에 docker 없어 미검증**
+
+## 명세 미해결 (개발 중 확정)
+
+- [x] **phase-1 필터 임계값 재보정 승인됨** (2026-09) — config/filters/*.yaml, report/phase-1 §A 노트, reviews/3a-5.md
+- [x] NewsScraper 소스: Google News + Yahoo RSS (FMP 뉴스 무료 제한)
+
+---
+
+## 후속 일감 (외부 대기 / 소규모 개선)
+
+> 지금 당장 못 하는 것 — 트리거 조건이 오면 처리. `docs/reviews/*-codereview.md` 에서 발췌.
+
+### A. 실데이터 축적 후 (모의투자 ~3개월)
+- [ ] **4-6 튜닝** — `similarity_floor`·`recency_halflife_months`·recall `k`, RAG on/off
+  섀도 A/B 측정, `evaluate.py` 임계 상수(`_SHADOW_DELTA_UNIT` 0.5%p / `_EXCESS_RETURN_UNIT`
+  10% / event severity), `rag._MIN_CORPUS` 튜닝
+- [ ] **4-6 교훈 충돌 탐지** — 신규 lesson 벡터 vs 기존 고신뢰 lesson 코사인 유사도 →
+  거버넌스 CLI 에 충돌 목록 (report/phase-4 §8)
+- [ ] **4-6 2단계 회상** — ①②③ 는 매크로 쿼리, ⑤⑥⑦ 는 애널리스트 event/theme 태그 반영
+  강화 쿼리 (현재는 단일 회상)
+- [ ] **4-6 `format_recall` 4줄 템플릿** — top-1 을 상황/판단/결과/교훈 4줄로 (현재 원문 절삭).
+  `RecalledCase` 에 `what_happened`·`lesson` 메타 추가 필요 (report/phase-4 §6.4)
+- [ ] **4-6 실 토크나이저** — `diary.schema.clip_tokens` 의 문자/3 근사 → tiktoken 등
+- [ ] **4-7 O-D** — 학습형 로지스틱 랭킹 가중 (`0.65/0.20/0.15` 대체). 채점 항목 ≥ ~150
+- [ ] **성공 판정 합격선 최종 수치** — 샤프 임계, 관찰 기간 (실 트랙레코드 보고 확정)
+
+### B. 구독 / 외부 서비스
+- [ ] **Sharadar 백테스트** — 3a-11 보류 해제. point-in-time 펀더멘털 → Gate A 일회성 검증.
+  `run_pipeline` 결정론 툴에 as-of 스레딩 + 주간 루프 (phase-2 §8.2)
+- [ ] **point-in-time 뉴스** — Reviewer(4-2) 하인드사이트 입력·`evaluate` exclusion "카테고리
+  중앙값" 정밀화 (현재 SPY 근사). Sharadar/유료 뉴스 아카이브
+- [ ] **나무증권 해외주식 세제** — phase-2 §5 / phase-3 §9 잠정 규칙 대체
+- [ ] **DeepSeek 잔액 충전** → `uv run pytest -m llm` (실 크루 검증), `-m net` (bge-m3)
+- [ ] **Mattermost 웹훅 3채널** (research/decisions/alerts) — `.env` `MM_WEBHOOK_*`
+
+### C. 환경 (이 개발환경에 docker 없음)
+- [ ] **docker build 검증** (ARM64) + bge-m3 베이크 이미지 크기 확인
+- [ ] **Radxa Rock 5 ITX 배포** — compose up, 볼륨·cron·supercronic 동작 확인
+
+### D. 소규모 개선 (아무때나)
+- [ ] **watchdog `dry_run` 배선** — `main.py` 는 됨. watchdog 은 여전히 crisis_state/
+  regime_history/crisis_flag persist + NAV 마킹 + 알림 무조건. deploy 스모크 완결성용
+- [ ] **배당 지급시기 왜곡** — 연간총액 대신 per-payment rate 감지 (Q4 선지급 오탐 리셋 방지).
+  yfinance `.dividends` 는 payment 단위 → 규칙적 지급 rate × 빈도 추정 필요
+- [ ] **`recall_log.jsonl` 로테이션** — 현재 append-only (연 ~50행, 수년 뒤)
+- [ ] **`docs/reviews/` 인덱스** — 리뷰 문서 ~14개, README 목차
