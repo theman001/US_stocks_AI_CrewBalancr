@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 from aegisvest.rules import allocation_rules
-from aegisvest.schemas import PMDraft, SizedPosition, SizingResult
+from aegisvest.schemas import PMDraft, Position, SizedPosition, SizingResult
 
 _CATS = ("low", "mid", "high")
 _TILT_LIMIT = 0.03  # 카테고리 목표 대비 ±3%p
@@ -43,15 +45,19 @@ def clamp_pm_draft(
     excl = {t.upper() for t in excluded}
     notes: list[str] = []
 
-    # 1) 풀 밖·제외 종목 제거
-    kept = [
-        p
-        for p in pm.positions
-        if p.ticker in pool and p.category == pool[p.ticker] and p.ticker.upper() not in excl
-    ]
-    dropped = [p.ticker for p in pm.positions if p not in kept]
+    # 1) 풀 밖·제외 종목 제거 + 티커 중복 제거 (LLM 이 같은 종목 2번 내면 첫 항목만).
+    #    카테고리는 pool 값(소문자)으로 정규화 — LLM 이 'LOW' 로 내도 매칭 유지.
+    kept: list[Position] = []
+    seen: set[str] = set()
+    for p in pm.positions:
+        key = p.ticker.upper()
+        if p.ticker in pool and key not in seen and key not in excl:
+            kept.append(p.model_copy(update={"category": pool[p.ticker]}))
+            seen.add(key)
+    kept_tickers = {p.ticker for p in kept}
+    dropped = [p.ticker for p in pm.positions if p.ticker not in kept_tickers]
     if dropped:
-        notes.append(f"PM 제안 중 풀밖/제외 {len(dropped)}종목 제거: {', '.join(dropped[:6])}")
+        notes.append(f"PM 제안 중 풀밖/제외/중복 {len(dropped)}종목 제거: {', '.join(dropped[:6])}")
 
     positions: list[SizedPosition] = []
     for cat in _CATS:
@@ -93,6 +99,7 @@ def clamp_pm_draft(
             )
 
     _enforce_caps(positions, g, nav_usd, notes)
+    _enforce_sector_cap(positions, g.sector_cap, nav_usd, notes)  # 결정론 사이저와 동일 (불가침)
     cw = {c: round(sum(p.weight for p in positions if p.category == c), 6) for c in _CATS}
     cw["cash"] = round(max(g.cash_floor, 1.0 - sum(cw.values())), 6)
     return SizingResult(
@@ -113,3 +120,21 @@ def _enforce_caps(
                 p.weight = round(p.weight * scale, 6)
                 p.target_usd = round(p.weight * nav_usd, 2)
         notes.append(f"PM 고위험 {high_sum:.1%} > {cap:.0%} → {scale:.2f}x 축소")
+
+
+def _enforce_sector_cap(
+    positions: list[SizedPosition], cap: float, nav_usd: float, notes: list[str]
+) -> None:
+    """섹터 합계 > cap → 비례 축소 (잔여 현금). portfolio_math._apply_sector_cap 과 동형."""
+    by_sector: dict[str, float] = defaultdict(float)
+    for p in positions:
+        if p.sector:
+            by_sector[p.sector] += p.weight
+    for name, sw in by_sector.items():
+        if sw > cap + 1e-9:
+            scale = cap / sw
+            for p in positions:
+                if p.sector == name:
+                    p.weight = round(p.weight * scale, 6)
+                    p.target_usd = round(p.weight * nav_usd, 2)
+            notes.append(f"PM 섹터 {name} {sw:.1%} > {cap:.0%} → {scale:.2f}x 축소")

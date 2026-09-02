@@ -13,7 +13,13 @@ from aegisvest.agents import crew as crew_mod
 from aegisvest.agents import organization as org_mod
 from aegisvest.agents.organization import run_organization
 from aegisvest.diary.logger import load_entries
-from aegisvest.schemas import PaperPortfolio, PipelineResult
+from aegisvest.schemas import (
+    ConstraintResult,
+    ConstraintViolation,
+    Order,
+    PaperPortfolio,
+    PipelineResult,
+)
 from tests.test_agents.conftest import ScriptedLLM
 
 _MACRO = json.dumps(
@@ -144,6 +150,27 @@ def test_allocation_tilt_logged_when_material(pipeline_result: PipelineResult) -
     tilts = [e for e in load_entries() if e.claim_type == "allocation_tilt"]
     assert tilts and tilts[0].decision["enforced"] is True
     assert tilts[0].shadow_link.startswith("state/shadow.json#")
+
+
+def test_constraints_fail_falls_back_to_deterministic_orders(
+    monkeypatch: pytest.MonkeyPatch, pipeline_result: PipelineResult
+) -> None:
+    """클램프가 못 잡은 하드 가드레일 위반 → 조직 주문 폐기, 결정론 주문 (절대 규칙 3)."""
+
+    pipeline_result.orders = [Order(ticker="DET0", side="buy", notional_usd=10.0, category="low")]
+    monkeypatch.setattr(
+        org_mod,
+        "check_constraints",
+        lambda draft: ConstraintResult(
+            verdict="FAIL",
+            violations=[ConstraintViolation(rule="sector_cap", detail="Tech 40%", value=0.4)],
+        ),
+    )
+    out = run_organization(
+        pipeline_result, portfolio=_pf(), prices={"L0": 100.0, "M0": 100.0}, llm=_llm()
+    )
+    assert [o.ticker for o in out.org_orders] == ["DET0"]  # 결정론 폴백
+    assert not out.rebalance_held  # HOLD 는 아님 (결정론은 유효)
 
 
 def test_diary_recall_injected_into_judgment_tasks(

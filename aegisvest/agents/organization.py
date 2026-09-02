@@ -161,7 +161,7 @@ def _clamped(pm_draft: DraftPortfolio, pr: PipelineResult, excluded: list[str]) 
     # 그래야 max_change_per_rebal(10%p/회) 를 안 깨고 PM 재량이 ±3%p 로 유지된다.
     det = {c: pr.draft.category_weights.get(c, 0.0) for c in _CATS}
     # PM 이 아예 안 건드린 카테고리는 결정론 종목 그대로 (카테고리 전면 제거 = ±3%p 위반 방지)
-    pm_cats = {p.category for p in pm_draft.positions}
+    pm_cats = {(p.category or "").lower() for p in pm_draft.positions}  # LLM 대소문자 무관
     excl = {t.upper() for t in excluded}
     merged = list(pm_draft.positions) + [
         p for p in pr.draft.positions if p.category not in pm_cats and p.ticker.upper() not in excl
@@ -273,12 +273,19 @@ def run_organization(
     constraints: ConstraintResult = check_constraints(org_draft)
     cio = st.cio or CIODecision(verdict="APPROVED", ic_memo="크루 파싱 실패 — 결정론 유지")
     held = st.held or cio.verdict == "HOLD"
+    # 하드 가드레일(고위험캡·섹터캡·단일캡) 위반은 불가침 — 클램프가 못 잡은 위반이면
+    # 조직 주문을 버리고 결정론 주문으로 폴백 (CLAUDE.md 절대 규칙 3).
     if constraints.verdict == "FAIL":
-        _log.warning("조직 draft 제약 위반 %s", [v.rule for v in constraints.violations])
+        _log.warning(
+            "조직 draft 제약 위반 %s — 결정론 주문 폴백", [v.rule for v in constraints.violations]
+        )
 
-    org_orders = (
-        [] if held else _org_orders(sizing, pr, portfolio, prices, pending_contribution_usd)
-    )
+    if held:
+        org_orders: list[Order] = []
+    elif constraints.verdict == "FAIL":
+        org_orders = list(pr.orders)
+    else:
+        org_orders = _org_orders(sizing, pr, portfolio, prices, pending_contribution_usd)
     _log_org_diary(st, org_draft, pr, run_id, diary_ids)
 
     return CrewOutcome(

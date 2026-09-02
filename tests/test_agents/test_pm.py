@@ -102,3 +102,42 @@ def test_cash_floor_and_sum() -> None:
     )
     assert r.category_weights["cash"] >= 0.03 - 1e-9
     assert sum(r.category_weights.values()) == pytest.approx(1.0, abs=1e-4)
+
+
+def test_uppercase_category_normalized_not_dropped() -> None:
+    pm = _pm([("L0", "LOW", 0.04), ("M0", "Mid", 0.04)])  # LLM 이 대문자로
+    r = clamp_pm_draft(
+        pm, det_targets=_DET, scoring=_SCORING, max_positions=_MAXP, excluded=[], nav_usd=1000
+    )
+    assert {p.ticker for p in r.positions} == {"L0", "M0"}
+    assert all(p.category in ("low", "mid", "high") for p in r.positions)
+
+
+def test_duplicate_ticker_deduped() -> None:
+    pm = _pm([("L0", "low", 0.03), ("L0", "low", 0.05), ("L1", "low", 0.03)])
+    r = clamp_pm_draft(
+        pm, det_targets=_DET, scoring=_SCORING, max_positions=_MAXP, excluded=[], nav_usd=1000
+    )
+    assert [p.ticker for p in r.positions].count("L0") == 1
+
+
+def test_sector_cap_enforced() -> None:
+    pm = PMDraft(
+        category_weights={},
+        positions=[
+            Position(ticker=f"L{i}", category="low", weight=0.06, sector="Technology")
+            for i in range(6)
+        ],  # 6 x 6% = 36% Tech > 30% 섹터캡
+        tilt_rationale="t",
+    )
+    r = clamp_pm_draft(
+        pm,
+        det_targets={"low": 0.40, "mid": 0, "high": 0},
+        scoring=_SCORING,
+        max_positions=_MAXP,
+        excluded=[],
+        nav_usd=1000,
+    )
+    tech = sum(p.weight for p in r.positions if p.sector == "Technology")
+    assert tech <= 0.30 + 1e-6
+    assert any("섹터" in n for n in r.notes)

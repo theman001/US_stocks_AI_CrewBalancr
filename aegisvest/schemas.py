@@ -235,7 +235,7 @@ class AllocationTargets(BaseModel):
 
 class Position(BaseModel):
     ticker: str
-    category: str  # LOW | MID | HIGH
+    category: str  # low | mid | high (소문자; PM 이 대문자로 내도 clamp_pm_draft 가 정규화)
     weight: float = Field(description="전체 포트 대비 소수")
     sector: str | None = None
 

@@ -61,3 +61,17 @@ def test_hedge_only_allows_tool_numbers_but_catches_hedge() -> None:
     # 헤지는 여전히 거부
     bad, _ = check(_Out(raw="대략 20% 성장 예상"))
     assert bad is False
+
+
+def test_range_notation_not_treated_as_hedge() -> None:
+    check = no_fabricated_numbers(_PAYLOAD, hedge_only=True)
+    ok, _ = check(_Out(raw="향후 2~4주 리스크 시나리오, theme_strength_adj -0.2~0.2 권고"))
+    assert ok is True  # "2~4" 는 범위지 근사(~) 아님
+    bad, _ = check(_Out(raw="~15% 하락 가능"))  # 진짜 근사 표기는 여전히 거부
+    assert bad is False
+
+
+def test_strategy_stop_loss_constants_allowed() -> None:
+    check = no_fabricated_numbers(_PAYLOAD)
+    ok, _ = check(_Out(raw="고위험 -15~-25% 하드손절, 중위험 -20% 소프트손절 규격"))
+    assert ok is True  # 3티어 전략 상수는 페이로드 밖이라도 참조 허용

@@ -69,7 +69,10 @@
   TWR 기여일=NavPoint일 정렬 · 섀도 레짐 이중계산 방지(`_persist_regime` 이동) · `state`
   atomic write · 벤치 결측 leg `pending_usd` 이월 · n_orders/docstring/중복호출.
   검토: [reviews/money-path-codereview.md](reviews/money-path-codereview.md). 251 tests.
-- [ ] **guardrails/pm** — `agents/guardrails.py` · `agents/pm.py` (하드 안전망)
+- [x] **guardrails/pm** — `agents/guardrails.py` · `agents/pm.py`. 5건 수정: `~` 범위표기
+  헤지 오탐 · `clamp_pm_draft` 섹터캡 미적용(+constraints FAIL→결정론 폴백) · 카테고리
+  대소문자로 PM 틸트 소실 · 티커 중복 이중계상 · 손절 상수 반려.
+  검토: [reviews/guardrails-pm-codereview.md](reviews/guardrails-pm-codereview.md). 257 tests.
 - [ ] **regime/screen/score** — `tools/regime.py` · `screener.py` · `scoring.py` · `allocation.py`
 
 ## 배포 (병행)
