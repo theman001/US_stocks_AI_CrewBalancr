@@ -26,10 +26,11 @@
 | [4-4](4-4.md) | DiaryRAG.recall + O-A 랭킹 + P-D 주입 |
 | [4-5](4-5.md) | 거버넌스 CLI (`python -m aegisvest.diary review`) |
 
-## 독립 `/code-review` 감사 (Pre-Phase-4, high)
+## 독립 `/code-review` 감사
 
-Phase 4 빌드 전 전 `aegisvest/` 를 7패스로 재검토. ~46 findings / ~43 수정 — 대부분
-"조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로 Gate B 성공 판정을 오염시킬 부류.
+Pre-Phase-4 7패스 + 4-post + 감사 이후 추가분(post-e2e) = 8패스, 전 `aegisvest/` 커버.
+~50 findings / ~48 수정 — 대부분 "조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로
+Gate B 성공 판정을 오염시킬 부류.
 
 | 패스 | 대상 |
 |---|---|

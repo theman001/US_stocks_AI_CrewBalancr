@@ -90,8 +90,8 @@
   `_bool_env` 빈값 · 음수 PE 밸류 최고점 · FMP 점표기 미정규화 · 배당 연속성 미확인.
   검토: [reviews/scoring-derived-codereview.md](reviews/scoring-derived-codereview.md). 274 tests.
 
-> **감사 완료** — 독립 `/code-review` 7 패스 (4-post-review 포함), 전 `aegisvest/` 커버,
-> ~46 findings / ~43 수정. `docs/reviews/*-codereview.md`.
+> **감사 완료** — 독립 `/code-review` 8 패스 (4-post-review + post-e2e 포함), 전 `aegisvest/`
+> 커버, ~50 findings / ~48 수정. `docs/reviews/*-codereview.md` + `docs/reviews/README.md`.
 
 - [x] **E2E 통합 테스트** — `tests/test_e2e.py`: 실 `run_pipeline`(데이터 소스만 mock) +
   실 `run_organization`(ScriptedLLM) + 실 일기 체인(로깅→evaluate→reviewer→rag.backfill→
@@ -161,7 +161,7 @@
   이미 받아오던 `.dividends` (payment 단위) 활용 — 신규 데이터 소스 불필요.
 - [x] **`recall_log.jsonl` 로테이션** (2026-09-02) — `_RECALL_LOG_MAX=520` (~10년치) 초과 시
   앞부분 절삭. 주 ~1행이라 실질 영향 없지만 무한 증가 방지.
-- [x] **`docs/reviews/` 인덱스** (2026-09-02) — [reviews/README.md](reviews/README.md) (단계 게이트 17 + 감사 7 + 기타 2)
+- [x] **`docs/reviews/` 인덱스** (2026-09-02) — [reviews/README.md](reviews/README.md) (단계 게이트 17 + 감사 8 + 기타 2)
 
 > **ponytail 정리** (2026-09-02) — 감사 후 오버엔지니어링 스캔. 죽은 config(reasoner/
 > llm_temperature/max_rpm/nasdaq/max_high_risk)·스키마(Verdict/Metric)·레거시 이관 코드

@@ -10,7 +10,6 @@
       "Read(./logs/**)",
       "Read(./**/*.parquet)",
       "Bash(rm -rf:*)",
-      "Bash(git push:*)",
       "Bash(docker system prune:*)"
     ],
     "allow": [
