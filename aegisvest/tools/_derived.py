@@ -68,7 +68,8 @@ def piotroski_f(years: list[AnnualFinancials]) -> int | None:
     resolved = [c for c in checks if c is not None]
     if len(resolved) < 6:  # 너무 많이 결측이면 신뢰 불가
         return None
-    return sum(1 for c in resolved if c)
+    # 결측 항목만큼 9점 스케일로 정규화 — 데이터 완전성만으로 `>= 6` 필터 탈락하는 편향 제거
+    return round(sum(1 for c in resolved if c) * len(checks) / len(resolved))
 
 
 def _fill(years: list[AnnualFinancials]) -> AnnualFinancials:
@@ -112,7 +113,9 @@ def dividend_streak_years(annual_dividends: list[tuple[int, float]]) -> int | No
     ordered = sorted(annual_dividends, key=lambda x: x[0])  # 연도 오름차순
     streak = 0
     for prev, cur in pairwise(ordered):
-        if cur[1] > prev[1] + 1e-9:
+        # 연속 연도 + 증배일 때만 카운트 — 연도 갭(결측)은 연속성 끊김으로 처리.
+        # 지급시기 이동(Q4 선지급 등)으로 인한 연간총액 왜곡은 per-payment 데이터 필요 (미지원).
+        if cur[0] == prev[0] + 1 and cur[1] > prev[1] + 1e-9:
             streak += 1
         else:
             streak = 0
@@ -133,7 +136,12 @@ def roic(y0: AnnualFinancials, tax_rate: float = 0.21) -> float | None:
     """NOPAT / 투하자본 근사. 투하자본 = 자기자본 + 장기부채."""
     if y0.ebit is None or y0.stockholders_equity is None:
         return None
-    invested = y0.stockholders_equity + (y0.long_term_debt or 0.0)
+    ltd = y0.long_term_debt
+    if ltd is None and y0.total_liabilities is not None and y0.current_liabilities is not None:
+        ltd = max(0.0, y0.total_liabilities - y0.current_liabilities)  # 장기부채 근사
+    if ltd is None:  # 투하자본 불확정 → 레버리지 종목 ROIC 부풀림 방지 (다른 함수와 일관)
+        return None
+    invested = y0.stockholders_equity + ltd
     if invested <= 0:
         return None
     return y0.ebit * (1.0 - tax_rate) / invested

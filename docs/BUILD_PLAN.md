@@ -101,3 +101,10 @@
   5건 수정: dropna 가 최신봉 버려 가격 stale · 캐시 손상 미복구+비원자적 · `_cagr` 결측
   압축으로 기준연도 어긋남 · 뉴스 미상날짜 컷오프 우회 · 빈약 VIX 프레임 stale 미표시.
   검토: [reviews/data-tools-codereview.md](reviews/data-tools-codereview.md). 268 tests.
+- [x] **scoring-derived** — `scoring` · `_derived` · `breadth` · `universe` · `config`. 8건 수정:
+  폭 4w 분모 편향 · `roic` 결측 debt 0 대체 · `piotroski_f` 부분점수 · scoring 비숫자 raise ·
+  `_bool_env` 빈값 · 음수 PE 밸류 최고점 · FMP 점표기 미정규화 · 배당 연속성 미확인.
+  검토: [reviews/scoring-derived-codereview.md](reviews/scoring-derived-codereview.md). 274 tests.
+
+> **감사 완료** — 독립 `/code-review` 7 패스 (4-post-review 포함), 전 `aegisvest/` 커버,
+> ~46 findings / ~43 수정. `docs/reviews/*-codereview.md`.

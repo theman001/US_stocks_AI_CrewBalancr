@@ -18,7 +18,7 @@ def market_breadth(tickers: list[str]) -> dict[str, float | str | None] | ToolEr
     if not tickers:
         return ToolError(error="빈 티커 리스트", field="tickers")
     ttl = float(get_settings().cache_ttl_hours)
-    above_now = above_4w = evaluated = 0
+    above_now = above_4w = evaluated = evaluated_4w = 0
     as_of = dt.date.today().isoformat()
 
     for t in tickers:
@@ -37,14 +37,16 @@ def market_breadth(tickers: list[str]) -> dict[str, float | str | None] | ToolEr
         as_of = str(close.index[-1].date())
         if float(close.iloc[-1]) > sma200:
             above_now += 1
-        if sma200_4w is not None and len(close) > 20 and float(close.iloc[-21]) > sma200_4w:
-            above_4w += 1
+        if sma200_4w is not None and len(close) > 20:  # 4주 전 SMA 가능한 종목만 별도 분모
+            evaluated_4w += 1
+            if float(close.iloc[-21]) > sma200_4w:
+                above_4w += 1
 
     if evaluated < 10:
         return ToolError(error=f"평가 가능 종목 부족: {evaluated}", field="tickers")
 
     pct_now = 100.0 * above_now / evaluated
-    pct_4w = 100.0 * above_4w / evaluated
+    pct_4w = 100.0 * above_4w / evaluated_4w if evaluated_4w else pct_now
     return {
         "pct_above_200dma": round(pct_now, 1),
         "pct_above_200dma_4w_change": round(pct_now - pct_4w, 1),

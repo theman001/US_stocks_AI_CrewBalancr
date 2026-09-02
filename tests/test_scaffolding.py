@@ -36,6 +36,15 @@ def test_settings_load_with_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.manual_ism_pmi is None
 
 
+def test_bool_env_empty_string_uses_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DRY_RUN", "")  # 존재하나 빈 값 → 안전한 기본(True) 유지
+    config.get_settings.cache_clear()
+    assert config.get_settings().dry_run is True
+    monkeypatch.setenv("DRY_RUN", "false")
+    config.get_settings.cache_clear()
+    assert config.get_settings().dry_run is False
+
+
 def test_ensure_runtime_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path / "out"))

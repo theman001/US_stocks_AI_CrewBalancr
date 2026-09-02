@@ -7,6 +7,7 @@ metric 을 후보군 내에서 순위화(0~1) → direction 적용 → component
 from __future__ import annotations
 
 import datetime as dt
+import math
 from bisect import bisect_right
 from typing import Any
 
@@ -17,9 +18,18 @@ from aegisvest.tools._screen import check_filter, merged_values
 _NEUTRAL = 0.5
 
 
+def _num(x: Any) -> float | None:
+    """숫자면 float, 아니면 None — 스코어링 경로에서 예외 raise 방지 (CLAUDE.md 규칙 2)."""
+    try:
+        f = float(x)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(f) else f
+
+
 def _add_derived(v: dict[str, Any], theme: float) -> None:
     pe, pe5 = v.get("pe_ttm"), v.get("pe_5y_median")
-    v["pe_vs_5y_median"] = pe / pe5 if pe and pe5 and pe5 > 0 else None
+    v["pe_vs_5y_median"] = pe / pe5 if (pe and pe > 0 and pe5 and pe5 > 0) else None  # 음수 PE 제외
     dy, dy5 = v.get("div_yield"), v.get("div_yield_5y_median")
     v["div_yield_vs_5y"] = dy / dy5 if dy and dy5 and dy5 > 0 else None
     s50, s200 = v.get("sma_50"), v.get("sma_200")
@@ -40,14 +50,18 @@ def _component_score(
         if x is None:
             parts.append(_NEUTRAL)
             continue
+        xf = _num(x)
+        if xf is None:
+            parts.append(_NEUTRAL)
+            continue
         if comp.llm_fed:  # 이미 0~1 스코어 (Thematic Analyst) — percentile 안 씀
-            parts.append(max(0.0, min(1.0, float(x))))
+            parts.append(max(0.0, min(1.0, xf)))
             continue
         pool = ranks.get(metric, [])
         if not pool:
             parts.append(_NEUTRAL)
             continue
-        pct = _percentile(pool, float(x))
+        pct = _percentile(pool, xf)
         parts.append(pct if direction >= 0 else 1.0 - pct)
     return sum(parts) / len(parts) if parts else _NEUTRAL
 
@@ -91,14 +105,29 @@ def score_category(
 
     all_metrics = {m for c in cfg.components for m in c.metrics}
     ranks: dict[str, list[float]] = {
-        m: sorted(float(v[m]) for v in rows.values() if v.get(m) is not None) for m in all_metrics
+        m: sorted(f for v in rows.values() if (f := _num(v.get(m))) is not None)
+        for m in all_metrics
     }
 
-    scored: list[ScoredTicker] = []
+    try:
+        scored = _score_rows(cat, cfg, rows, ranks)
+    except (ValueError, TypeError, ZeroDivisionError) as e:  # config 불일치 등 — raise 금지
+        return ToolError(error=f"스코어링 계산 실패: {e}", field="scoring_config")
+
+    scored.sort(key=lambda s: s.score, reverse=True)
+    for i, s in enumerate(scored, 1):
+        s.rank = i
+    return ScoringResult(category=cat, scores=scored, errored=errored, as_of=as_of)
+
+
+def _score_rows(
+    cat: str, cfg: Any, rows: dict[str, dict[str, Any]], ranks: dict[str, list[float]]
+) -> list[ScoredTicker]:
+    out: list[ScoredTicker] = []
     for t, v in rows.items():
         comps = {c.name: _component_score(c, v, ranks) for c in cfg.components}
         total = 100.0 * sum(c.weight * comps[c.name] for c in cfg.components)
-        scored.append(
+        out.append(
             ScoredTicker(
                 ticker=t,
                 score=round(total, 2),
@@ -107,8 +136,4 @@ def score_category(
                 component_scores={k: round(x, 3) for k, x in comps.items()},
             )
         )
-
-    scored.sort(key=lambda s: s.score, reverse=True)
-    for i, s in enumerate(scored, 1):
-        s.rank = i
-    return ScoringResult(category=cat, scores=scored, errored=errored, as_of=as_of)
+    return out

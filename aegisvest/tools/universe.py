@@ -30,7 +30,8 @@ def _from_fmp(name: str, key: str) -> list[str]:
         {"apikey": key},
         ttl_hours=168.0,  # 주간
     )
-    return [row["symbol"].upper() for row in data or [] if row.get("symbol")]
+    # FMP 는 클래스주를 `BRK.B` 로, yfinance 는 `BRK-B` 로 표기 → 정규화
+    return [row["symbol"].upper().replace(".", "-") for row in data or [] if row.get("symbol")]
 
 
 def get_universe(name: str = "combined") -> list[str]:

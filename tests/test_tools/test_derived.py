@@ -78,6 +78,31 @@ def test_roic() -> None:
     assert r is not None and abs(r - 200.0 * 0.79 / 800.0) < 1e-6
 
 
+def test_roic_approximates_ltd_from_liabilities_when_missing() -> None:
+    # long_term_debt None → (total_liab 400 - current_liab 200) = 200 로 근사
+    r = dv.roic(
+        _year(ebit=200.0, stockholders_equity=600.0, long_term_debt=None)  # type: ignore[arg-type]
+    )
+    assert r is not None and abs(r - 200.0 * 0.79 / 800.0) < 1e-6
+    # 부채 정보 자체가 없으면 부풀림 방지 위해 None (0 으로 대체 안 함)
+    y = _year(ebit=200.0, stockholders_equity=600.0)
+    y.long_term_debt = y.total_liabilities = y.current_liabilities = None
+    assert dv.roic(y) is None
+
+
+def test_piotroski_normalizes_partial_score() -> None:
+    y0, y1 = _year(), _year()
+    y0.gross_profit = y1.gross_profit = None  # 2개 항목 결측 → 7/9 resolvable
+    y0.shares_outstanding = y1.shares_outstanding = None
+    f = dv.piotroski_f([y0, y1])
+    assert f is not None and 0 <= f <= 9  # partial(≤7) 아니라 정규화된 9점 척도
+
+
+def test_dividend_streak_resets_on_year_gap() -> None:
+    gapped = [(2018, 1.0), (2019, 1.1), (2021, 1.2), (2022, 1.3)]  # 2020 결측
+    assert dv.dividend_streak_years(gapped) == 1  # 2019→2021 갭 → 리셋, 2021→2022 만 카운트
+
+
 def test_mean_roe() -> None:
     years = [_year(net_income=n, stockholders_equity=1000.0) for n in (120, 100, 80)]
     assert dv.mean_roe(years) == (0.12 + 0.10 + 0.08) / 3

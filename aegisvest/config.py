@@ -24,7 +24,10 @@ def _path_env(name: str, default: str) -> Path:
 
 
 def _bool_env(name: str, default: bool) -> bool:
-    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:  # 미설정 또는 빈 문자열(`DRY_RUN=`) → 안전한 기본값
+        return default
+    return raw in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True, slots=True)
