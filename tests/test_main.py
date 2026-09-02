@@ -31,6 +31,8 @@ def _mock_io(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main, "usd_krw", lambda: 1400.0)
     monkeypatch.setattr(main, "market_data", market_data_stub)
     monkeypatch.setattr(main, "latest_close_date", lambda ttl: "2026-09-01")
+    monkeypatch.setenv("DRY_RUN", "false")  # 실 실행 경로 테스트 (기본은 dry-run)
+    main.get_settings.cache_clear()
 
 
 def _pipeline(**kw: object):
@@ -69,6 +71,21 @@ def test_first_run_contributes_and_executes(monkeypatch: pytest.MonkeyPatch) -> 
     assert shadow.organization.history and shadow.organization.positions
     # 크루 없음 → 결정론 = 조직 (동일)
     assert shadow.deterministic.positions.keys() == shadow.organization.positions.keys()
+
+
+def test_dry_run_persists_nothing_and_skips_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DRY_RUN", "true")
+    main.get_settings.cache_clear()
+    monkeypatch.setattr(main, "run_pipeline", _pipeline)
+    posts: list[str] = []
+    monkeypatch.setattr(main, "post", lambda *_a, **_k: posts.append("x"))
+
+    res = main.run()
+    assert res.dry_run is True
+    assert res.report_path  # 리포트는 여전히 씀
+    assert posts == []  # 알림 스킵
+    assert state.load_model("shadow.json", ShadowState) is None  # 상태 미저장
+    assert state.load_list("regime_history.json", RegimeHistoryPoint) == []
 
 
 def test_second_run_same_month_no_double_contribution(monkeypatch: pytest.MonkeyPatch) -> None:

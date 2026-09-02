@@ -92,8 +92,8 @@ signal_rules:
   breadth_thrust: "pct_above_200dma_4w_change is not None and pct_above_200dma_4w_change >= 20"
   yield_curve_inversion: "yc_10y_3m_bp is not None and yc_10y_3m_bp < 0"
   yield_curve_resteepening: "yc_10y_3m_4w_change_bp is not None and yc_10y_3m_4w_change_bp >= 15 and (yc_10y_3m_prev_bp or 0) < 0"
-  death_cross: "sma50 is not None and sma200 is not None and sma50_prev is not None and sma200_prev is not None and sma50 < sma200 and sma50_prev >= sma200_prev"
-  golden_cross: "sma50 is not None and sma200 is not None and sma50_prev is not None and sma200_prev is not None and sma50 > sma200 and sma50_prev <= sma200_prev"
+  death_cross: "None not in (spx_sma_50, spx_sma_200, spx_sma_50_prev, spx_sma_200_prev) and spx_sma_50 < spx_sma_200 and spx_sma_50_prev >= spx_sma_200_prev"
+  golden_cross: "None not in (spx_sma_50, spx_sma_200, spx_sma_50_prev, spx_sma_200_prev) and spx_sma_50 > spx_sma_200 and spx_sma_50_prev <= spx_sma_200_prev"
 
 max_tags_per_entry: 8
 similarity_floor: 0.55

@@ -119,13 +119,17 @@ def _execute_and_mark(
     held: bool,
     fx: float,
     mark_date: str,
+    execute: bool = True,
 ) -> ExecutionResult | None:
-    """조직·결정론 포트 각각 체결 후 mark-to-market (+벤치). 조직 execution 만 반환."""
+    """조직·결정론 포트 각각 체결 후 mark-to-market (+벤치). 조직 execution 만 반환.
+
+    `execute=False` (DRY_RUN): 체결은 건너뛰고 마킹만 (리포트용 평가). 호출자가 저장 안 함.
+    """
     org_pf, det_pf = shadow.organization, shadow.deterministic
     org_exec: ExecutionResult | None = None
-    if not held and org_orders:
+    if execute and not held and org_orders:
         org_exec = paper.execute(org_pf, org_orders, prices)
-    if det_orders:  # 결정론 병행 시뮬은 CIO HOLD 와 무관하게 진행
+    if execute and det_orders:  # 결정론 병행 시뮬은 CIO HOLD 와 무관하게 진행
         paper.execute(det_pf, det_orders, prices)
     paper.mark_to_market(org_pf, prices, mark_date, fx)
     paper.mark_to_market(det_pf, prices, mark_date, fx)
@@ -133,8 +137,12 @@ def _execute_and_mark(
     return org_exec
 
 
-def _persist_regime(history: list[RegimeHistoryPoint], regime: RegimeResult, as_of: str) -> None:
+def _persist_regime(
+    history: list[RegimeHistoryPoint], regime: RegimeResult, as_of: str, *, persist: bool = True
+) -> None:
     """감시견과 동일 규칙 — crisis_state 항상, history 는 low_confidence 아닌 날만."""
+    if not persist:
+        return
     save_model("crisis_state.json", regime.crisis_state)
     if regime.low_confidence:
         return
@@ -195,7 +203,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     else:
         det_orders = pr.orders
 
-    _persist_regime(history, pr.regime, pr.as_of)  # 이제 append (org·det 파이프라인 모두 실행 후)
+    _persist_regime(history, pr.regime, pr.as_of, persist=not s.dry_run)  # org·det 실행 후 append
 
     mark_date = mkt_date or pr.as_of
     all_prices = {**pr.prices, **bench_prices}
@@ -208,6 +216,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
         held=held,
         fx=fx,
         mark_date=mark_date,
+        execute=not s.dry_run,
     )
     if execution is not None:
         _log.info("체결(조직) %d건 · %s", len(execution.fills), "조직틸트" if use_org else "결정론")
@@ -216,8 +225,13 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
     nav = org_pf.history[-1]
     det_nav = det_pf.history[-1].nav_usd if det_pf.history else None
 
-    save_model("benchmarks.json", bench)
-    save_model("shadow.json", shadow)
+    if s.dry_run:
+        _log.warning(
+            "DRY_RUN — 상태 미저장 (shadow/benchmarks/regime_history), 주문 미체결, 알림 스킵"
+        )
+    else:
+        save_model("benchmarks.json", bench)
+        save_model("shadow.json", shadow)
 
     report_md = weekly_report_md(
         pr,
@@ -230,20 +244,22 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
         det_nav_usd=det_nav,
     )
     report_path = write_run(run_id, pr, crew, execution, report_md)
-    post(
-        mattermost_summary(
-            pr,
-            crew,
-            held=held,
-            nav_usd=nav.nav_usd,
-            n_fills=len(execution.fills) if execution else 0,
-        ),
-        channel="aegis-alerts",
-    )
+    if not s.dry_run:
+        post(
+            mattermost_summary(
+                pr,
+                crew,
+                held=held,
+                nav_usd=nav.nav_usd,
+                n_fills=len(execution.fills) if execution else 0,
+            ),
+            channel="aegis-alerts",
+        )
 
     return WeeklyRunResult(
         run_id=run_id,
         trigger=trigger,
+        dry_run=s.dry_run,
         held=held,
         crew_ran=crew is not None,
         contribution_usd=round(contribution_usd, 2),

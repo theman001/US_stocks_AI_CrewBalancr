@@ -16,6 +16,8 @@ services:
     env_file: .env
     environment:
       TZ: ${TZ:-Asia/Seoul}
+      # bge-m3 가중치는 이미지에 베이크됨 (Dockerfile). 볼륨으로도 유지해 재빌드 없이 캐시.
+      HF_HOME: /app/hf-cache
     configs:
       - source: crontab
         target: /app/crontab
@@ -24,9 +26,11 @@ services:
       - ${AEGIS_DATA:-./data}/cache:/app/data/cache
       - ${AEGIS_DATA:-./data}/outputs:/app/outputs
       - ${AEGIS_DATA:-./data}/logs:/app/logs
+      - ${AEGIS_DATA:-./data}/hf-cache:/app/hf-cache
     restart: unless-stopped
-    mem_limit: 2g
-    cpus: 1.0
+    # bge-m3(~2.3GB 상주) + chromadb + crew — 판단 일기 RAG 배치·회상 시 필요. 2g 면 OOM.
+    mem_limit: 4g
+    cpus: 2.0
 
 configs:
   crontab:
@@ -36,5 +40,5 @@ configs:
       30 6 * * *  flock -n /tmp/wd.lock   python -m aegisvest.watchdog
       # 일요일 22:00 KST — 주간 풀 크루
       0 22 * * 0  flock -n /tmp/crew.lock python -m aegisvest.main
-      # 월요일 23:00 KST — 판단 일기 채점 배치 (Phase 4)
-      0 23 * * 1  flock -n /tmp/eval.lock python -m aegisvest.diary.evaluate
+      # 월요일 23:00 KST — 판단 일기: 채점(결정론) → 반성(⑨ LLM) → RAG 색인 (Phase 4)
+      0 23 * * 1  flock -n /tmp/diary.lock sh -c 'python -m aegisvest.diary.evaluate && python -m aegisvest.diary.reviewer && python -m aegisvest.diary.rag'

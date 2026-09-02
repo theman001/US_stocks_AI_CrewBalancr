@@ -130,6 +130,12 @@ class MacroData(BaseModel):
     spx_last: float | None
     spx_sma_200: float | None
     spx_sma_50: float | None
+    spx_sma_200_prev: float | None = Field(
+        default=None, description="1거래일 전 200SMA (크로스 판정)"
+    )
+    spx_sma_50_prev: float | None = Field(
+        default=None, description="1거래일 전 50SMA (크로스 판정)"
+    )
     spx_50_slope_20d: float | None = Field(description="50일 SMA 20일 변화율, 소수")
     pct_above_200dma: float | None = Field(
         description="구성종목 중 200일선 상회 비율, 퍼센트 0~100 (3a-5)"
@@ -618,6 +624,7 @@ class WeeklyRunResult(BaseModel):
 
     run_id: str
     trigger: str = Field(description="scheduled | crisis")
+    dry_run: bool = Field(default=False, description="DRY_RUN — 상태 미저장·미체결·알림 스킵")
     held: bool = Field(description="CIO HOLD 로 매매 스킵")
     crew_ran: bool
     contribution_usd: float = 0.0

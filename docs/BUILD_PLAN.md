@@ -80,11 +80,12 @@
 
 ## 배포 (병행)
 
-- [ ] docker-compose.yml — OMV8 단일 스택 (build.context git URL + configs 인라인 crontab + supercronic)
-- [ ] cron: 감시견 매일 06:30 / 크루 일요일 22:00 / 일기 배치 월요일 23:00 (KST) —
-  `evaluate && reviewer && rag` 체이닝
+- [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
+  배치를 `evaluate && reviewer && rag` 체이닝, `mem_limit 4g`(bge-m3 상주), `HF_HOME` 볼륨.
+  Dockerfile 이 빌드 시 bge-m3 가중치 베이크. `DRY_RUN` 실제 배선 (main: 상태 미저장·미체결·
+  알림 스킵, 기본 true — `.env` 에서 false 로 가동).
 - [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
-- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64)
+- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64) — **docker build 는 이 개발환경에 docker 없어 미검증**
 
 ## 명세 미해결 (개발 중 확정)
 

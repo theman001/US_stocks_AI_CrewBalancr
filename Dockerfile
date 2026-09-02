@@ -24,4 +24,9 @@ RUN uv sync --frozen --no-dev --all-extras --no-install-project
 COPY . .
 RUN uv sync --frozen --no-dev --all-extras
 
+# bge-m3 가중치(~2.3GB) 를 이미지에 베이크 — 첫 RAG 배치가 HF 다운로드로 멈추지 않게,
+# 오프라인·느린 회선에서도 동작. compose 가 HF_HOME 볼륨으로도 유지.
+ENV HF_HOME=/app/hf-cache
+RUN uv run python -c "from FlagEmbedding import BGEM3FlagModel; BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)"
+
 CMD ["supercronic", "-passthrough-logs", "/app/crontab"]
