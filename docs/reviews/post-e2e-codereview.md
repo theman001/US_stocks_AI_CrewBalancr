@@ -37,6 +37,34 @@
 - `_annual_dividends` freq tie-break `max(sorted(set(counts)), key=counts.count)` — 동률이면 큰 빈도 (정상값). 결정론적. OK.
 - ponytail `_load_shadow`/`report._load_org_pf`/`pipeline._demo` 레거시 폴백 제거 — `paper_portfolio.json` 은 미배포라 존재 불가. 호출부 None 처리 확인. OK.
 
+## A+B 재검토 (2026-09-02) — 수정 0건
+
+`e32da9e` (A: persist_diary 스레딩 / B: 크로스 상태 기반) 독립 재검토.
+
+**확인 (정상)**
+- 일기 쓰기 경로 3곳 전부 게이트: `crew._log_diary` (`_callback` 의 `persist_diary`),
+  `organization._log_org_diary` ×2 (`if persist_diary`). 누락 없음.
+- `run_reviewer` 는 `make_task`/callback 안 쓰고 Task 직접 생성 → `diary.log()` 미호출.
+  post_mortem 은 기존 항목에 append (월요일 배치, 드라이런엔 evaluated 항목 없음). 갭 아님.
+- `_last_float` 이 NaN→None 변환 → `spx_sma_50/200` 은 `float|None`, `is not None` 가드로 충분.
+- 제거된 `spx_sma_*_prev` — 디스크 영속 상태에 없음 (미배포). 옛 일기 `data_snapshot` dict 에
+  키가 남아도 새 룰은 `spx_sma_50/200` (여전히 존재) 만 참조 → 무해.
+- `build_query` 도 스냅샷에서 `signal:death_cross` 를 방출 → 쿼리·문서 코호트 매칭 일관
+  (이벤트 버전은 쿼리가 태그를 거의 안 달아 매칭 실패했음 — 상태 버전이 실제로 더 나음).
+
+**노트 (수정 안 함)**
+- `_recall_block` 은 드라이런에도 실행 → `state/chroma/` 빈 디렉터리 생성 (ChromaDB 클라이언트
+  init). 벡터·`recall_log` 는 안 씀 (순수 드라이런은 코퍼스 비어 `_MIN_CORPUS` 게이트 →
+  `recall()` `[]` → `_log_recall` early return). 스키마일 뿐 데이터 아님 + 스모크가 주입
+  경로를 태워봐야 함 → 유지. "state/ 완전 무접촉" 을 원하면 `_recall_block` 을 게이트.
+- `post_agent_note` 는 드라이런에도 발송 (research/decisions 채널) — 최종 alerts 요약만 스킵.
+  비대칭이나 "관측은 흐르고 결정·지속만 스킵" 원칙과 일관.
+- `death_cross`/`golden_cross` 가 상태 태그화 → 추세장엔 다수 항목에 붙어 약한 판별자
+  (`regime:bear` 급). 위기 시 signal 다발이면 8-태그 캡이 밀어낼 수 있음. `yield_curve_inversion`
+  과 동일 성질. 사용자 선택한 트레이드오프.
+- [기존, 이 diff 무관] crisis 픽스처가 `spx_sma_50 == spx_sma_200` 라 통합 테스트에선
+  death_cross 미발동. 위기 regime 엔 비현실적 — 선택: 픽스처 50<200 + `death_cross` assert.
+
 ## 검증
 ruff / format / mypy(50) / pytest **282 passed, 2 deselected**.
 커밋: `fix(post-e2e-review): E2E 시간의존·docker 볼륨 섀도·recall_log 원자성 4건`
