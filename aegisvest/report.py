@@ -172,9 +172,7 @@ def write_run(
 
 def _load_org_pf() -> PaperPortfolio | None:
     shadow = load_model("shadow.json", ShadowState)
-    if shadow is not None and shadow.organization.history:
-        return shadow.organization
-    return load_model("paper_portfolio.json", PaperPortfolio)  # 구버전 폴백
+    return shadow.organization if (shadow and shadow.organization.history) else None
 
 
 def performance_report_md() -> str:

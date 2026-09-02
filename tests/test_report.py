@@ -9,6 +9,7 @@ from aegisvest.schemas import (
     Fill,
     NavPoint,
     PaperPortfolio,
+    ShadowState,
 )
 from tests.fixtures.pipeline import make_pipeline_result
 
@@ -68,7 +69,7 @@ def test_performance_report_with_history() -> None:
             for d, v in [(1, 100.0), (2, 101.0), (3, 99.0), (4, 103.0)]
         ],
     )
-    state.save_model("paper_portfolio.json", pf)
+    state.save_model("shadow.json", ShadowState(organization=pf))
     md = report.performance_report_md()
     assert "성과 리포트" in md
     assert "총수익률" in md

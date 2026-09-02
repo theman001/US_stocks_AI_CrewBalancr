@@ -9,7 +9,7 @@ import pytest
 
 import aegisvest
 from aegisvest import config
-from aegisvest.schemas import Category, Regime, ToolError, Verdict
+from aegisvest.schemas import Category, Regime, ToolError
 
 
 def test_package_imports() -> None:
@@ -31,7 +31,6 @@ def test_settings_load_with_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.dry_run is True
     assert s.universe == "combined"
     assert s.model == "deepseek/deepseek-chat"
-    assert s.max_high_risk_exposure == 0.20
     assert isinstance(s.state_dir, Path)
     assert s.manual_ism_pmi is None
 
@@ -59,7 +58,6 @@ def test_ensure_runtime_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 def test_schema_enums() -> None:
     assert [c.value for c in Category] == ["LOW", "MID", "HIGH"]
     assert set(Regime) == {Regime.BULL, Regime.NEUTRAL, Regime.BEAR, Regime.CRISIS}
-    assert Verdict.REJECTED == "REJECTED"
     err = ToolError(error="not found", field="ticker")
     assert err.model_dump() == {"error": "not found", "field": "ticker"}
 

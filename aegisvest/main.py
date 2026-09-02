@@ -98,15 +98,8 @@ def _bench_prices() -> dict[str, float]:
 
 
 def _load_shadow() -> ShadowState:
-    """섀도 A/B state. 구버전 paper_portfolio.json 있으면 organization 으로 1회 이관."""
-    shadow = load_model("shadow.json", ShadowState)
-    if shadow is not None:
-        return shadow
-    old = load_model("paper_portfolio.json", PaperPortfolio)
-    if old is not None:
-        _log.info("paper_portfolio.json → shadow.json 이관 (양쪽 동일 시작)")
-        return ShadowState(deterministic=old.model_copy(deep=True), organization=old)
-    return ShadowState()
+    """섀도 A/B state (deterministic + organization 이중 포트). 없으면 빈 상태."""
+    return load_model("shadow.json", ShadowState) or ShadowState()
 
 
 def _execute_and_mark(

@@ -25,6 +25,7 @@ from aegisvest.schemas import (
     RegimeHistoryPoint,
     ScoredTicker,
     ScoringResult,
+    ShadowState,
     SizingResult,
     ToolError,
 )
@@ -273,7 +274,8 @@ def run_pipeline(
 
 def _demo() -> None:  # 수동 스모크 — python -m aegisvest.pipeline
     logging.basicConfig(level="INFO", format="%(name)s %(levelname)s %(message)s")
-    pf = load_model("paper_portfolio.json", PaperPortfolio) or PaperPortfolio()
+    shadow = load_model("shadow.json", ShadowState)
+    pf = shadow.organization if shadow else PaperPortfolio()
     hist = load_list("regime_history.json", RegimeHistoryPoint)
     cs = load_model("crisis_state.json", CrisisState)
     res = run_pipeline(

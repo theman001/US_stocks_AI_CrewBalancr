@@ -45,17 +45,13 @@ class Settings:
     cache_dir: Path
     log_level: str
 
-    # LLM (3a-9 이후 사용)
+    # LLM (3a-9 이후 사용) — 온도는 config/agents.yaml 의 에이전트별 값
     deepseek_api_key: str | None
     model: str
-    reasoner_model: str
-    llm_temperature: float
-    llm_max_rpm: int
 
     # 금융 데이터 API
     fmp_api_key: str | None
     fred_api_key: str | None
-    nasdaq_data_link_api_key: str | None
     manual_ism_pmi: float | None
 
     # 알림
@@ -72,9 +68,6 @@ class Settings:
     paper_fx_spread_pct: float
     monthly_contribution_krw: float  # 적금형 월 납입 (0 = 납입 없음)
 
-    # 가드레일 (config/allocation.yaml 이 최종 근거 — 여기는 안전 하한)
-    max_high_risk_exposure: float
-
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
@@ -90,12 +83,8 @@ def get_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         deepseek_api_key=os.getenv("DEEPSEEK_API_KEY"),
         model=os.getenv("MODEL", "deepseek/deepseek-chat"),
-        reasoner_model=os.getenv("REASONER_MODEL", "deepseek/deepseek-reasoner"),
-        llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
-        llm_max_rpm=int(os.getenv("LLM_MAX_RPM", "20")),
         fmp_api_key=os.getenv("FMP_API_KEY"),
         fred_api_key=os.getenv("FRED_API_KEY"),
-        nasdaq_data_link_api_key=os.getenv("NASDAQ_DATA_LINK_API_KEY"),
         manual_ism_pmi=float(manual_ism) if manual_ism else None,
         mattermost_webhook_url=os.getenv("MATTERMOST_WEBHOOK_URL"),
         mattermost_webhook_research=os.getenv("MM_WEBHOOK_RESEARCH"),
@@ -105,7 +94,6 @@ def get_settings() -> Settings:
         paper_commission_pct=float(os.getenv("PAPER_COMMISSION_PCT", "0.001")),
         paper_fx_spread_pct=float(os.getenv("PAPER_FX_SPREAD_PCT", "0.005")),
         monthly_contribution_krw=float(os.getenv("MONTHLY_CONTRIBUTION_KRW", "100000")),
-        max_high_risk_exposure=float(os.getenv("MAX_HIGH_RISK_EXPOSURE", "0.20")),
     )
 
 

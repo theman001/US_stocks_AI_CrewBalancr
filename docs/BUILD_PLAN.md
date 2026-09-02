@@ -147,3 +147,7 @@
   yfinance `.dividends` 는 payment 단위 → 규칙적 지급 rate × 빈도 추정 필요
 - [ ] **`recall_log.jsonl` 로테이션** — 현재 append-only (연 ~50행, 수년 뒤)
 - [ ] **`docs/reviews/` 인덱스** — 리뷰 문서 ~14개, README 목차
+
+> **ponytail 정리** (2026-09-02) — 감사 후 오버엔지니어링 스캔. 죽은 config(reasoner/
+> llm_temperature/max_rpm/nasdaq/max_high_risk)·스키마(Verdict/Metric)·레거시 이관 코드
+> + `requests-cache`·`crewai-tools` 의존성 제거. 동작 변화 0. [reviews/ponytail-cleanup.md](reviews/ponytail-cleanup.md)

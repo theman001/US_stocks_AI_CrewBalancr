@@ -36,8 +36,3 @@ def fundamentals_tool(ticker: str) -> str:
 def technical_tool(ticker: str) -> str:
     """종목 가격·기술지표 (SMA50/200, RSI14, ATR14, 12-1 모멘텀, RS vs SPX, 52주 고점 대비)."""
     return _dump(market_data(ticker))
-
-
-NEWS = news_scraper_tool
-FUNDAMENTALS = fundamentals_tool
-TECHNICAL = technical_tool

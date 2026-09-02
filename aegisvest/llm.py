@@ -22,15 +22,15 @@ class LLMUnavailableError(RuntimeError):
 
 
 @lru_cache(maxsize=4)
-def get_llm(*, reasoner: bool = False, temperature: float | None = None) -> LLM:
+def get_llm(*, temperature: float) -> LLM:
     s = get_settings()
     if not s.deepseek_api_key:
         raise LLMUnavailableError(
             "DEEPSEEK_API_KEY 없음 — run_crew 불가. 결정론 코어(run_pipeline)는 영향 없음."
         )
     return LLM(
-        model=s.reasoner_model if reasoner else s.model,
+        model=s.model,
         api_key=s.deepseek_api_key,
-        temperature=s.llm_temperature if temperature is None else temperature,
+        temperature=temperature,
         top_p=0.6,  # 재현성 — 낮게
     )

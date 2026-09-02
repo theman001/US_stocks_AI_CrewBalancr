@@ -11,14 +11,13 @@ dependencies = [
     "numpy>=1.26",
     "yfinance>=0.2.50",
     "requests>=2.32",
-    "requests-cache>=1.2",
 ]
 
 [project.optional-dependencies]
 # 3a-9 이후 (에이전트 계층). 초기 결정론 단계엔 미설치.
+# 툴 데코레이터는 `crewai.tools` (core 번들) — crewai-tools 별도 패키지 불요.
 agents = [
     "crewai>=0.100",
-    "crewai-tools>=0.30",
 ]
 # Phase 4 판단 일기 RAG. ARM 빌드 시간 절약 위해 분리.
 diary = [
@@ -68,7 +67,7 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["yfinance.*", "crewai.*", "crewai_tools.*", "chromadb.*", "FlagEmbedding.*", "requests_cache.*"]
+module = ["yfinance.*", "crewai.*", "chromadb.*", "FlagEmbedding.*"]
 ignore_missing_imports = true
 
 # ─────────────────────────── pytest ─────────────────────────

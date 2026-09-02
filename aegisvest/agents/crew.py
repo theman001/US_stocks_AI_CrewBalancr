@@ -51,9 +51,9 @@ _ABSOLUTE_RULES = """
 
 # 에이전트별 툴 (docs/PROMPTS.md 규칙 5 — ①②③ 만 툴 사용, ⑨는 Phase 4)
 _AGENT_TOOLS: dict[str, list[Any]] = {
-    "macro_strategist": [agent_tools.NEWS],
-    "fundamental_analyst": [agent_tools.NEWS, agent_tools.FUNDAMENTALS],
-    "thematic_analyst": [agent_tools.NEWS, agent_tools.TECHNICAL],
+    "macro_strategist": [agent_tools.news_scraper_tool],
+    "fundamental_analyst": [agent_tools.news_scraper_tool, agent_tools.fundamentals_tool],
+    "thematic_analyst": [agent_tools.news_scraper_tool, agent_tools.technical_tool],
 }
 
 
