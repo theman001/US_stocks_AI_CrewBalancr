@@ -311,8 +311,10 @@ def _recency(cand_tags: list[str], meta: dict[str, Any], halflife: int) -> float
     return max(decay, 0.15 if "regime:crisis" in cand_tags else 0.0)  # 위기 항목 상시 후보
 
 
+_RECALL_LOG_MAX = 520  # 회상 주 ~1행 → ~10년치. 넘으면 앞부분 절삭 (4-7 O-D 신호로도 쓰임).
+
+
 def _log_recall(cases: list[RecalledCase]) -> None:
-    # ponytail: append-only, 주 ~1행 — 연 ~50행이라 로테이션 불필요. 4-7 O-D 신호로도 쓰임.
     if not cases:
         return
     path = get_settings().state_dir / "diary" / "recall_log.jsonl"
@@ -321,6 +323,9 @@ def _log_recall(cases: list[RecalledCase]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if len(lines) > _RECALL_LOG_MAX:
+            path.write_text("\n".join(lines[-_RECALL_LOG_MAX:]) + "\n", encoding="utf-8")
     except OSError as e:  # 회상 로그 실패로 크루를 멈추지 않는다
         _log.warning("recall_log 기록 실패: %s", e)
 

@@ -131,10 +131,13 @@ def run() -> RegimeResult:
 
     result = regime_score(macro, history, crisis_state)
 
-    save_model(_CRISIS_STATE, result.crisis_state)
-    _update_history(history, result, macro.as_of)
-    _mark_nav(macro.as_of)
-    _handle_crisis(result, macro.as_of)  # 마지막 — 위기 시 주간 크루 트리거
+    if get_settings().dry_run:  # 배포 스모크 — 계산·로그만, 상태·알림·트리거 없음 (main 과 동일)
+        _log.warning("DRY_RUN — crisis_state/history/nav 미저장, 위기 알림·주간 트리거 스킵")
+    else:
+        save_model(_CRISIS_STATE, result.crisis_state)
+        _update_history(history, result, macro.as_of)
+        _mark_nav(macro.as_of)
+        _handle_crisis(result, macro.as_of)  # 마지막 — 위기 시 주간 크루 트리거
 
     _log.info(
         "%s regime=%s total=%d smooth=%.2f n_axes=%d%s stale=%s",

@@ -251,6 +251,26 @@ def test_build_query_deterministic_tags_and_text() -> None:
     assert not any(t.startswith(("claim_type:", "sleeve:")) for t in tags)
 
 
+def test_recall_log_stays_bounded() -> None:
+    case = rag.RecalledCase(
+        entry_id="x",
+        kind="situation",
+        cosine=0.9,
+        rank=0.9,
+        verdict="hit",
+        score=1,
+        regime="neutral",
+        attribution="high",
+        month="2026-09",
+        tags=[],
+        text="t",
+    )
+    for _ in range(rag._RECALL_LOG_MAX + 40):
+        rag._log_recall([case])
+    path = rag.get_settings().state_dir / "diary" / "recall_log.jsonl"
+    assert len(path.read_text(encoding="utf-8").splitlines()) == rag._RECALL_LOG_MAX
+
+
 def test_structural_scoring() -> None:
     # {claim_type,sleeve,regime} 완전 일치 → 0.5, {signal,...} Jaccard 1.0 → 0.5 => 1.0
     q = ["regime:neutral", "claim_type:regime_call", "sleeve:high", "signal:vix_spike"]

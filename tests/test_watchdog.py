@@ -20,7 +20,9 @@ from tests.fixtures.macro import macro
 
 @pytest.fixture(autouse=True)
 def _no_integration(monkeypatch: pytest.MonkeyPatch) -> None:
-    """감시견 로직만 테스트 — NAV 마킹·위기 트리거(네트워크·크루)는 no-op."""
+    """감시견 로직만 — NAV 마킹·위기 트리거는 no-op. 실 경로 (기본 dry-run 해제)."""
+    monkeypatch.setenv("DRY_RUN", "false")
+    watchdog.get_settings.cache_clear()
     monkeypatch.setattr(watchdog, "_mark_nav", lambda _d: None)
     monkeypatch.setattr(watchdog, "_trigger_weekly_crew", lambda: None)
 
@@ -114,6 +116,20 @@ def test_crisis_clears_and_alerts(monkeypatch: pytest.MonkeyPatch, alerts: list[
     flag = state.load_model("crisis_flag.json", CrisisFlag)
     assert flag is not None and flag.active is False
     assert any("CRISIS 해제" in a for a in alerts)
+
+
+def test_dry_run_computes_but_persists_nothing(
+    monkeypatch: pytest.MonkeyPatch, alerts: list[str]
+) -> None:
+    monkeypatch.setenv("DRY_RUN", "true")
+    watchdog.get_settings.cache_clear()
+    _patch_macro(monkeypatch, macro(as_of="2026-09-01", vix=40.0, vix3m=45.0))  # 위기 조건
+    result = watchdog.run()
+    assert result.crisis_active is True  # 계산은 정상
+    assert state.load_list("regime_history.json", RegimeHistoryPoint) == []
+    assert state.load_model("crisis_state.json", CrisisState) is None
+    assert state.load_model("crisis_flag.json", CrisisFlag) is None
+    assert alerts == []  # 알림 스킵
 
 
 @pytest.mark.usefixtures("alerts")
