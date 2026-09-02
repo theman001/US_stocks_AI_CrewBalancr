@@ -101,6 +101,21 @@ def test_first_run_all_buys_and_valid() -> None:
     assert res.constraints.verdict in {"PASS", "FAIL"}
 
 
+def test_prior_category_weights_populated_so_max_change_gate_runs() -> None:
+    # 이미 저위험에 크게 물린 포트 → 이번 회차 배분이 10%p 넘게 안 움직여야 PASS
+    pf = PaperPortfolio(cash_usd=1000.0)
+    res = pipeline.run_pipeline(portfolio=pf, pending_contribution_usd=0.0)
+    assert res.draft.prior_category_weights  # 채워짐 (게이트가 실제로 돌 수 있게)
+    changes = {
+        c: abs(
+            res.sizing.category_weights.get(c, 0.0) - res.draft.prior_category_weights.get(c, 0.0)
+        )
+        for c in ("low", "mid", "high")
+    }
+    assert all(ch <= 0.10 + 1e-6 for ch in changes.values())  # 램프업이 10%p 지킴
+    assert not any(v.rule == "max_change_per_rebal" for v in res.constraints.violations)
+
+
 def test_post_action_weights_sum_to_one() -> None:
     res = pipeline.run_pipeline(portfolio=PaperPortfolio(), pending_contribution_usd=100.0)
     paw = res.rebalance_plan.post_action_weights

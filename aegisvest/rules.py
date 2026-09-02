@@ -84,7 +84,7 @@ class RegimeRules(BaseModel):
 
 @lru_cache(maxsize=8)
 def _load(name: str) -> dict[str, object]:
-    data = yaml.safe_load((CONFIG_DIR / name).read_text())
+    data = yaml.safe_load((CONFIG_DIR / name).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         msg = f"{name}: 최상위가 매핑이 아님"
         raise ValueError(msg)

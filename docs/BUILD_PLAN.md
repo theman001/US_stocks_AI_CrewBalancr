@@ -93,3 +93,7 @@
 - [ ] 성공 판정 합격선 최종 수치 (샤프 임계, 관찰 기간)
 - [x] NewsScraper 소스: Google News + Yahoo RSS (FMP 뉴스 무료 제한)
 - [ ] 백테스트 Sharadar 구독 시점 (Gate A 최종 검증 직전)
+- [x] **runtime** — `watchdog.py` · `report.py` · `constraints.py` · `state.py`. 6건 수정:
+  벤치마크 기여 미보정(Gate B 왜곡) · read/write 인코딩 미지정(C 로케일 상태유실) ·
+  `_mark_nav` guard 가 빈 포트 봄 · `max_change_per_rebal` 게이트가 메인 경로서 미작동 ·
+  FX 폴백 1400 점프 · 가격 중복조회. 검토: [reviews/runtime-codereview.md](reviews/runtime-codereview.md). 263 tests.

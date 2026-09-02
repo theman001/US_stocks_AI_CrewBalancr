@@ -19,6 +19,7 @@ from aegisvest.schemas import (
     BenchmarkState,
     CrisisFlag,
     CrisisState,
+    PaperPortfolio,
     RegimeHistoryPoint,
     RegimeResult,
     ShadowState,
@@ -87,14 +88,13 @@ def _mark_nav(fallback_date: str) -> None:
     if all(not p.positions and p.cash_usd <= 0 for p in pfs):
         return
     as_of = _trading_day(fallback_date)
-    ref = shadow.organization
-    if ref.history and ref.history[-1].date >= as_of:
-        return  # 이미 이 거래일 마감 반영 (주말·중복 실행)
-    fx = usd_krw()
-    fx_rate = fx if not isinstance(fx, ToolError) else 1400.0
-    held = {t for p in pfs for t in p.positions}
+    marked = max((p.history[-1].date for p in pfs if p.history), default="")
+    if marked >= as_of:
+        return  # 이미 이 거래일 마감 반영 (주말·중복 실행) — 마킹된 포트 기준
+    fx_rate = _fx_or_carry(pfs)
+    held = {t for p in pfs for t, pos in p.positions.items() if pos.shares > 0}
     prices: dict[str, float] = {}
-    for t in [*held, *bm.BENCH_TICKERS]:
+    for t in sorted(held | set(bm.BENCH_TICKERS)):
         md = market_data(t)
         if not isinstance(md, ToolError) and md.last_price > 0:
             prices[t] = md.last_price
@@ -110,6 +110,17 @@ def _mark_nav(fallback_date: str) -> None:
 def _trading_day(default: str) -> str:
     """가장 최근 미국장 거래일 (NAV 타임라인 인덱스). 실패 시 default(macro.as_of)."""
     return latest_close_date(float(get_settings().cache_ttl_hours)) or default
+
+
+def _fx_or_carry(pfs: list[PaperPortfolio]) -> float:
+    """USD/KRW — 조회 실패 시 마지막 NavPoint 의 암시 환율 이월 (1400 고정 점프 방지)."""
+    fx = usd_krw()
+    if not isinstance(fx, ToolError):
+        return fx
+    for p in pfs:
+        if p.history and p.history[-1].nav_usd > 0:
+            return p.history[-1].nav_krw / p.history[-1].nav_usd
+    return 1400.0
 
 
 def run() -> RegimeResult:

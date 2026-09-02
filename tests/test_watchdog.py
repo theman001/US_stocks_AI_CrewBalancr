@@ -5,7 +5,16 @@ from __future__ import annotations
 import pytest
 
 from aegisvest import state, watchdog
-from aegisvest.schemas import CrisisFlag, CrisisState, MacroData, RegimeHistoryPoint
+from aegisvest.schemas import (
+    CrisisFlag,
+    CrisisState,
+    MacroData,
+    NavPoint,
+    PaperPortfolio,
+    RegimeHistoryPoint,
+    ShadowState,
+    ToolError,
+)
 from tests.fixtures.macro import macro
 
 
@@ -117,3 +126,31 @@ def test_history_capped(monkeypatch: pytest.MonkeyPatch) -> None:
         watchdog.run()
     hist = state.load_list("regime_history.json", RegimeHistoryPoint)
     assert len(hist) <= watchdog._MAX_HISTORY
+
+
+def test_mark_nav_guard_uses_marked_portfolio_and_carries_fx(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+
+    monkeypatch.undo()  # _mark_nav 실제 실행 (autouse no-op 해제)
+    # 부트스트랩: org 비어있고 det 가 라이브 (broker/shadow.py 문서화 상태)
+    det = PaperPortfolio(
+        cash_usd=100.0,
+        history=[NavPoint(date="2026-09-04", nav_usd=100.0, nav_krw=133000.0)],  # 암시환율 1330
+    )
+    state.save_model("shadow.json", ShadowState(deterministic=det, organization=PaperPortfolio()))
+    monkeypatch.setattr(watchdog, "usd_krw", lambda: ToolError(error="net", field="fx"))
+    monkeypatch.setattr(watchdog, "market_data", lambda t: ToolError(error="net", field="t"))
+
+    monkeypatch.setattr(watchdog, "_trading_day", lambda _d: "2026-09-04")  # 이미 마킹된 날
+    watchdog._mark_nav("2026-09-04")
+    sh = state.load_model("shadow.json", ShadowState)
+    assert sh is not None and len(sh.deterministic.history) == 1  # guard 가 det 봄 → 재마킹 안 함
+
+    monkeypatch.setattr(watchdog, "_trading_day", lambda _d: "2026-09-08")
+    watchdog._mark_nav("2026-09-08")
+    sh2 = state.load_model("shadow.json", ShadowState)
+    assert sh2 is not None
+    np_new = sh2.deterministic.history[-1]
+    assert np_new.date == "2026-09-08"
+    assert np_new.nav_krw / np_new.nav_usd == pytest.approx(1330.0, abs=1.0)  # 1400 폴백 아님

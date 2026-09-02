@@ -17,7 +17,7 @@ _FILE = {"SP500": "sp500.txt", "NASDAQ100": "nasdaq100.txt"}
 def _from_file(name: str) -> list[str]:
     path = CONFIG_DIR / "universe" / _FILE[name]
     out: list[str] = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         t = line.split("#", 1)[0].strip().upper()
         if t:
             out.append(t)

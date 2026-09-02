@@ -196,7 +196,7 @@ def performance_report_md() -> str:
     for name in BENCHMARKS:
         hist = (bench.history.get(name) if bench else None) or []
         if hist:
-            b = performance_stats(hist)
+            b = performance_stats(hist, pf.contributions)  # 벤치도 동일 현금흐름 → 기여 보정
             lines.append(
                 f"- {name}: 총수익 {_fmt_pct(b['total_return'])} · MDD {_fmt_pct(b['mdd'])}"
             )

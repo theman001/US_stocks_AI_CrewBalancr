@@ -65,12 +65,12 @@ def cached_json(
     key = url + "?" + json.dumps(params or {}, sort_keys=True)
     path = _cache_path(key, ".json")
     if _fresh(path, _ttl(ttl_hours)):
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     resp = requests.get(url, params=params, headers=headers, timeout=_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     with contextlib.suppress(OSError, TypeError):
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(data), encoding="utf-8")
     return data
 
 
@@ -83,12 +83,12 @@ def cached_text(
     """HTTP GET -> 본문 텍스트 (RSS/XML), TTL 캐시."""
     path = _cache_path(url, ".txt")
     if _fresh(path, _ttl(ttl_hours)):
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
     resp = requests.get(url, headers=headers, timeout=_TIMEOUT)
     resp.raise_for_status()
     text: str = resp.text
     with contextlib.suppress(OSError):
-        path.write_text(text)
+        path.write_text(text, encoding="utf-8")
     return text
 
 

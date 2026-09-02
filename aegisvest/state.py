@@ -36,7 +36,7 @@ def load_model[M: BaseModel](name: str, model: type[M]) -> M | None:
     if not p.exists():
         return None
     try:
-        return model.model_validate_json(p.read_text())
+        return model.model_validate_json(p.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         return None
 
@@ -50,7 +50,7 @@ def load_list[M: BaseModel](name: str, model: type[M]) -> list[M]:
     if not p.exists():
         return []
     try:
-        raw = json.loads(p.read_text())
+        raw = json.loads(p.read_text(encoding="utf-8"))
         return [model.model_validate(x) for x in raw]
     except (ValueError, OSError, TypeError):
         return []

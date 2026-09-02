@@ -239,12 +239,14 @@ def run_pipeline(
         raise RuntimeError(f"size_positions 실패: {sizing.error}")
     notes.extend(sizing.notes)
 
+    prior_cw = {c: round(current_cat_usd.get(c, 0.0) / nav, 6) for c in _CATS} if nav > 0 else {}
     draft = DraftPortfolio(
         category_weights=sizing.category_weights,
         positions=[
             Position(ticker=p.ticker, category=p.category, weight=p.weight, sector=p.sector)
             for p in sizing.positions
         ],
+        prior_category_weights=prior_cw,  # max_change_per_rebal 하드 게이트가 실제로 돌도록
     )
     constraints = check_constraints(draft)
 
