@@ -73,7 +73,10 @@
   헤지 오탐 · `clamp_pm_draft` 섹터캡 미적용(+constraints FAIL→결정론 폴백) · 카테고리
   대소문자로 PM 틸트 소실 · 티커 중복 이중계상 · 손절 상수 반려.
   검토: [reviews/guardrails-pm-codereview.md](reviews/guardrails-pm-codereview.md). 257 tests.
-- [ ] **regime/screen/score** — `tools/regime.py` · `screener.py` · `scoring.py` · `allocation.py`
+- [x] **regime/screen/score** — `tools/regime.py` · `screener.py` · `allocation.py`. 6건 수정:
+  low_confidence 시 score_smooth 외삽 억제 · RS 컷 데이터운 의존 제거 · EMA 같은날 이중계산 ·
+  CRISIS 해제 공휴일 반영 · 백워데이션 `>=` 명세 일치 · 고위험캡 스필 mid.
+  검토: [reviews/regime-screen-codereview.md](reviews/regime-screen-codereview.md). 261 tests.
 
 ## 배포 (병행)
 

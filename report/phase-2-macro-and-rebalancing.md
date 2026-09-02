@@ -82,6 +82,13 @@ Phase 1의 5개 축 유지, "경기" 축만 복합 지표로 교체.
 
 라벨(`BULL/NEUTRAL/BEAR/CRISIS`)은 계속 산출 → 리포트 가독성 + CRISIS 비상 브레이크용.
 
+> **⚠️ regime-screen 감사 수정 (2026-09-02).** `low_confidence`(관측 축 < `min_axes_for_label`)
+> 일엔 `score_smooth`·배분에 외삽값(`sum × 6/n`)이 아닌 **관측 축 원합**만 반영 — 얇은 데이터로
+> 95% 주식·20% 고위험 스냅 방지. `total_score`(리포트용)는 명세대로 외삽. CRISIS 해제의
+> "5거래일"은 `regime_history`(실제 거래일) 로 카운트 (공휴일 정확). `regime_score` 는 오늘
+> 이후 날짜의 히스토리 포인트를 EMA 에서 제외 (같은 날 재실행 이중계산 방지). 상세:
+> `docs/reviews/regime-screen-codereview.md`.
+
 ### 2.2 보간 기준점 테이블
 
 `score_smooth`를 아래 기준점 사이 **피스와이즈 선형 보간**. 카테고리 %는 **주식 슬리브 내부 기준** (합 100).

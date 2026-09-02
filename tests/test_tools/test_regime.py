@@ -263,6 +263,48 @@ def test_score_smooth_uses_history() -> None:
     assert r.score_smooth == pytest.approx(4.0)
 
 
+def test_low_confidence_score_smooth_uses_raw_sum_not_extrapolation() -> None:
+    # vix+spx 만 (+2,+2) → total_score 12 (외삽) 이지만 EMA 입력은 원합 4
+    r = regime_score(
+        macro(
+            vix=12.0,
+            vix3m=20.0,
+            spx_last=110.0,
+            spx_sma_200=100.0,
+            spx_50_slope_20d=0.02,
+            pct_above_200dma=None,
+            yc_10y_3m_bp=None,
+            hy_oas_bp=None,
+            wei=None,
+            regional_fed_mfg_avg=None,
+            claims_4w_trend_pct=None,
+        )
+    )
+    assert r.total_score == 12
+    assert r.score_smooth == pytest.approx(4.0)  # 외삽이면 12 였을 것
+
+
+def test_same_day_history_point_not_double_counted() -> None:
+    # 히스토리에 이미 오늘(as_of) 포인트가 있어도 EMA 에 한 번만
+    hist = [
+        RegimeHistoryPoint(date="2026-08-31", total_score=6),
+        RegimeHistoryPoint(date="2026-09-01", total_score=0),  # == macro as_of
+    ]
+    r = regime_score(macro(), history=hist)  # 오늘 total 0
+    assert r.score_smooth == pytest.approx(4.0)  # [6, 0] — 9/01 히스토리 무시
+
+
+def test_crisis_exit_counts_holidays_via_history() -> None:
+    # busday 로는 5거래일이지만 실제 거래일 기록은 4일 → 래치 유지 (공휴일 1일 반영)
+    prior = CrisisState(active=True, triggered_date="2026-08-24")  # 월
+    hist = [
+        RegimeHistoryPoint(date=d, total_score=0)
+        for d in ("2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-31")
+    ]  # 8/28(금) 공휴일 가정 → 트리거 후 4거래일
+    r = regime_score(macro(as_of="2026-08-31"), history=hist, crisis_state=prior)
+    assert r.crisis_active is True  # 4 < exit_trading_days(5)
+
+
 def test_determinism() -> None:
     m = macro(vix=13.0, vix3m=20.0, hy_oas_bp=310.0, hy_oas_4w_change_bp=-5.0)
     outs = [regime_score(m).model_dump() for _ in range(3)]

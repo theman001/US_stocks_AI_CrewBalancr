@@ -112,3 +112,23 @@ def test_high_rs_top30_cut(rows: dict[str, Any]) -> None:
         rows[f"T{i}"] = {**base, "rs_vs_spx_6m": rs}
     r = sc.screen("HIGH", "combined")
     assert {st.ticker for st in r.passed} == {"T0", "T1"}  # round(5*0.3)=2
+
+
+def test_high_rs_cut_skipped_on_low_coverage(rows: dict[str, Any]) -> None:
+    base = {
+        "market_cap_usd": 5.0e9,
+        "adv_20d_usd": 1.0e8,
+        "rev_growth_yoy": 0.5,
+        "last_price": 110.0,
+        "sma_200": 100.0,
+        "sma_50": 105.0,
+        "mom_12_1": 0.2,
+        "rsi_14": 60.0,
+        "vol_ratio_latest": 1.1,
+        "as_of": "2026-09-01",
+    }
+    rows["HAS_RS"] = {**base, "rs_vs_spx_6m": 0.9}
+    for i in range(4):  # RS 결측 4종 → 커버리지 1/5 = 20% < 50%
+        rows[f"NO_RS{i}"] = {**base, "rs_vs_spx_6m": None}
+    r = sc.screen("HIGH", "combined")
+    assert len(r.passed) == 5  # RS 컷 스킵 — 하드필터 통과분 전부 유지 (일관성)

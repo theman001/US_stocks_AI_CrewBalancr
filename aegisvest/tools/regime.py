@@ -32,6 +32,23 @@ def _trading_days_between(start: str, end: str) -> int:
     return int(np.busday_count(np.datetime64(start), np.datetime64(end)))
 
 
+def _elapsed_trading_days(
+    history: list[RegimeHistoryPoint], triggered_date: str | None, as_of: str
+) -> int:
+    """트리거 후 경과 거래일. regime_history(실제 거래일 기록)가 조밀하면 그걸로 세고
+    (공휴일 정확 반영), 부족하면 busday_count 폴백 (감시견 미가동 기간·truncate 대비).
+    """
+    if triggered_date is None:
+        return 0
+    busday = _trading_days_between(triggered_date, as_of)
+    dates = sorted(h.date for h in history)
+    if dates and dates[0] <= triggered_date:
+        hist_count = sum(1 for d in dates if triggered_date < d <= as_of)
+        if hist_count >= busday - 3:  # 히스토리 조밀 → 정확값 사용
+            return hist_count
+    return busday
+
+
 def _ema(scores: list[int], span: int) -> float:
     alpha = 2.0 / (span + 1)
     ema = float(scores[0])
@@ -48,7 +65,7 @@ def _axis_vix(m: MacroData, r: VixAxis) -> tuple[int | None, str]:
         return None, "VIX 데이터 없음"
     v3 = m.vix3m
     contango = v3 is not None and m.vix < v3
-    backwardation = v3 is not None and m.vix > v3  # 정확히 같으면 평탄 → 중립
+    backwardation = v3 is not None and m.vix >= v3  # 명세: vix >= vix3m (config/regime_rules.yaml)
     if m.vix < r.calm_max and contango:
         return 2, f"VIX {m.vix:.1f} < {r.calm_max} & 콘탱고"
     if m.vix > r.stress_max or backwardation:
@@ -142,7 +159,7 @@ def _axis_economy(m: MacroData, r: EconomyAxis) -> tuple[int | None, dict[str, i
 
 
 def _crisis(
-    m: MacroData, score_smooth: float, prior: CrisisState, r: RegimeRules
+    m: MacroData, score_smooth: float, prior: CrisisState, r: RegimeRules, elapsed: int
 ) -> tuple[bool, str | None, CrisisState]:
     c = r.crisis
     reasons: list[str] = []
@@ -162,11 +179,6 @@ def _crisis(
     if reasons:
         return True, "; ".join(reasons), CrisisState(active=True, triggered_date=m.as_of)
     if prior.active:
-        elapsed = (
-            _trading_days_between(prior.triggered_date, m.as_of)
-            if prior.triggered_date
-            else c.exit_trading_days
-        )
         if score_smooth >= c.exit_score_smooth_min and elapsed >= c.exit_trading_days:
             return False, None, CrisisState(active=False, triggered_date=None)
         return (
@@ -195,7 +207,9 @@ def regime_score(
 ) -> RegimeResult:
     """오늘의 MacroData + 누적 히스토리 + 직전 CRISIS 상태 → RegimeResult."""
     r = regime_rules()
-    prior_scores = [h.total_score for h in (history or [])]
+    hist = history or []
+    # 오늘(as_of) 이후 날짜 포인트는 EMA 에서 제외 — 같은 날 재실행 시 오늘 이중계산 방지
+    prior_scores = [h.total_score for h in hist if h.date < macro.as_of]
     prior_crisis = crisis_state or CrisisState()
     ax = r.axes
 
@@ -220,8 +234,14 @@ def regime_score(
     total = max(-12, min(12, normalized))
     low_confidence = n_present < r.min_axes_for_label
 
-    score_smooth = _ema([*prior_scores, total], r.ema_span)
-    crisis_active, crisis_reason, new_state = _crisis(macro, score_smooth, prior_crisis, r)
+    # low_confidence 일엔 EMA·배분에 외삽(±12)이 아닌 관측 축 원합만 반영 — 얇은 데이터로
+    # 95% 주식·20% 고위험 스냅 방지. 리포트용 total_score 는 명세대로 외삽값 유지.
+    ema_input = sum(present) if low_confidence else total
+    score_smooth = _ema([*prior_scores, ema_input], r.ema_span)
+    elapsed_td = _elapsed_trading_days(hist, prior_crisis.triggered_date, macro.as_of)
+    crisis_active, crisis_reason, new_state = _crisis(
+        macro, score_smooth, prior_crisis, r, elapsed_td
+    )
     if crisis_active:
         regime = Regime.CRISIS
     elif low_confidence:

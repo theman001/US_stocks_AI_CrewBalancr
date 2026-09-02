@@ -53,12 +53,12 @@ def allocation_targets(
         "high": vals[_HIGH] / 100.0,
     }
     cat_total = {k: round(v * sleeve, 6) for k, v in cat_sleeve.items()}
-    # 고위험 절대 상한 강제
+    # 고위험 절대 상한 강제 (현 앵커로는 도달 불가 — 방어선. 앵커 변경 시 대비)
     cap = rules.guardrails.high_abs_cap
     if cat_total["high"] > cap:
         overflow = cat_total["high"] - cap
         cat_total["high"] = cap
-        cat_total["low"] += overflow  # 초과분은 저위험으로
+        cat_total["mid"] += overflow  # 초과분은 중위험으로 (sizing.underfill_spill_to 와 일관)
 
     return AllocationTargets(
         score_smooth=score_smooth,
