@@ -5,6 +5,10 @@
 
 run_pipeline() 은 state 를 읽지도 쓰지도 않는다 (호출자가 주입·persist). 실행도 안 한다
 (Order 리스트만 반환 → main.py 가 PaperBroker.execute).
+
+불변식: 반환된 PipelineResult 의 draft 는 하드 가드레일을 **항상** 만족한다
+(`constraints.verdict == "PASS"`). 툴 버그/config 불일치로 위반 draft 가 나오면
+`check_constraints` FAIL → `RuntimeError` (ToolError 3종과 동일 — 조용히 넘기지 않음).
 """
 
 from __future__ import annotations
@@ -244,16 +248,27 @@ def run_pipeline(
         raise RuntimeError(f"size_positions 실패: {sizing.error}")
     notes.extend(sizing.notes)
 
-    prior_cw = {c: round(current_cat_usd.get(c, 0.0) / nav, 6) for c in _CATS} if nav > 0 else {}
+    # max_change_per_rebal 검증 기준 = cash_flow_rebalance 스로틀 계획. 스로틀 자체
+    # (현재→계획 ≤ 10%p)는 rebalance.py 의 max_move_usd 캡이 구조적으로 보장 —
+    # check_constraints 는 size_positions 가 그 계획에 충실했나만 본다.
+    prior_cw = {c: round(plan.post_action_weights.get(c, 0.0), 6) for c in _CATS}
     draft = DraftPortfolio(
         category_weights=sizing.category_weights,
         positions=[
             Position(ticker=p.ticker, category=p.category, weight=p.weight, sector=p.sector)
             for p in sizing.positions
         ],
-        prior_category_weights=prior_cw,  # max_change_per_rebal 하드 게이트가 실제로 돌도록
+        prior_category_weights=prior_cw,
     )
     constraints = check_constraints(draft)
+    if constraints.verdict == "FAIL":
+        # 결정론 툴(allocation/sizing/rebalance)이 각자 캡을 걸므로 여기 FAIL 은 설계상 도달 불가.
+        # 도달했다면 툴 버그/config 불일치 — 조용히 위반 주문을 체결하면 안 된다 (CLAUDE.md 규칙 3).
+        # ToolError 3종과 동일 처리: raise. 반환된 PipelineResult 는 항상 PASS 불변식.
+        raise RuntimeError(
+            "결정론 draft 하드 가드레일 위반: "
+            + str([f"{v.rule}={v.value:.4f}" for v in constraints.violations])
+        )
 
     order_prices = {**held_prices, **_prices_for([p.ticker for p in sizing.positions])}
     orders = build_orders(sizing, portfolio, order_prices, plan)

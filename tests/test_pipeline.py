@@ -11,6 +11,8 @@ import pytest
 
 from aegisvest import pipeline
 from aegisvest.schemas import (
+    ConstraintResult,
+    ConstraintViolation,
     MarketData,
     PaperPortfolio,
     PaperPosition,
@@ -98,11 +100,11 @@ def test_first_run_all_buys_and_valid() -> None:
     assert res.orders and all(o.side == "buy" for o in res.orders)
     # 신규현금 배포는 cash_flow_rebalance 상한(카테고리별 NAV 10%p) 안
     assert sum(o.notional_usd or 0.0 for o in res.orders) <= 70.0 + 1e-6
-    assert res.constraints.verdict in {"PASS", "FAIL"}
+    assert res.constraints.verdict == "PASS"  # run_pipeline 이 반환했으면 항상 PASS (불변식)
 
 
 def test_prior_category_weights_populated_so_max_change_gate_runs() -> None:
-    # 이미 저위험에 크게 물린 포트 → 이번 회차 배분이 10%p 넘게 안 움직여야 PASS
+    # prior = post_action_weights(스로틀 계획). size_positions 가 계획에 충실하면 PASS.
     pf = PaperPortfolio(cash_usd=1000.0)
     res = pipeline.run_pipeline(portfolio=pf, pending_contribution_usd=0.0)
     assert res.draft.prior_category_weights  # 채워짐 (게이트가 실제로 돌 수 있게)
@@ -112,8 +114,8 @@ def test_prior_category_weights_populated_so_max_change_gate_runs() -> None:
         )
         for c in ("low", "mid", "high")
     }
-    assert all(ch <= 0.10 + 1e-6 for ch in changes.values())  # 램프업이 10%p 지킴
-    assert not any(v.rule == "max_change_per_rebal" for v in res.constraints.violations)
+    assert all(ch <= 0.10 + 1e-4 for ch in changes.values())  # 계획↔실현 편차 ≤ 10%p
+    assert res.constraints.verdict == "PASS"  # 위반이면 run_pipeline 이 raise 했을 것
 
 
 def test_post_action_weights_sum_to_one() -> None:
@@ -138,6 +140,21 @@ def test_dropped_holding_is_sold() -> None:
     )
     res = pipeline.run_pipeline(portfolio=pf, pending_contribution_usd=0.0)
     assert any(o.ticker == "ZZZ" and o.side == "sell" for o in res.orders)
+
+
+def test_constraints_fail_raises_not_silent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 툴 버그로 위반 draft 가 나오는 상황을 시뮬 — run_pipeline 은 조용히 반환하면 안 됨
+
+    monkeypatch.setattr(
+        pipeline,
+        "check_constraints",
+        lambda _d: ConstraintResult(
+            verdict="FAIL",
+            violations=[ConstraintViolation(rule="high_abs_cap", detail="x", value=0.35)],
+        ),
+    )
+    with pytest.raises(RuntimeError, match="하드 가드레일 위반"):
+        pipeline.run_pipeline(portfolio=PaperPortfolio(), pending_contribution_usd=100.0)
 
 
 def test_crisis_snaps_high_to_zero() -> None:

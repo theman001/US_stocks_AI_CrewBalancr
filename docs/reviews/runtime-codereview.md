@@ -20,6 +20,8 @@
 - `state._atomic_write` (money-path 패스) 는 이미 UTF-8 — 이번엔 read 쪽 + config/cache 로더.
 - `prior_category_weights` 추가로 결정론 FAIL 이 나도 실행은 안 막음 (기존대로 리포트에만
   노출) — 램프업이 정상이면 애초에 안 남. 실행 차단은 별도 설계 결정.
+  **개정 (2026-09-02, whole-integration #2 D옵션)**: `prior = current_cat_usd/nav` →
+  `post_action_weights`(스로틀 계획), `run_pipeline` 이 FAIL 시 raise. reviews/whole-integration.
 
 ## 검증
 - ruff / ruff format / mypy(50) / pytest **263 passed, 2 deselected**

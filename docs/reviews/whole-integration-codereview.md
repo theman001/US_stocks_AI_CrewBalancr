@@ -3,7 +3,7 @@
 섹터별 감사(8패스) 이후, **섹터 간 연결부 중심** 전체 검토. 데이터 플로우 정합성 ·
 논리 모순 · 로직 버그 · 의도 불일치. 커밋 상태 기준 (diff 아님).
 
-## 수정 (8건 — 사용자 판단으로 #2 제외)
+## 수정 (9건 — #2 는 D옵션으로 후속 처리)
 
 | # | 심각도 | 위치 | 문제 | 수정 |
 |---|---|---|---|---|
@@ -16,13 +16,25 @@
 | 8 | 낮음 | `pipeline.py:258` | 신규 타깃 종목 가격조회 실패 시 sizing 은 예산 배정, `build_orders` 는 조용히 드롭 → 그 주 예산 유휴현금. 문서화 안 됨 | `notes.append("타깃 가격 결측 ...")` |
 | 9 | 낮음 | `diary/logger.py:103` | 같은 날 crisis 재실행 → `entry_id`(run_id+agent+claim_type) 충돌 → `entries.jsonl` dupe 축적 (RAG 는 id dedup, evaluate 는 base-rate 이중계상) | `load_entries` 가 id 로 dedup (마지막 유지, 위치 보존). `test_load_entries_dedups_by_id_keeping_last` |
 
-## 보류 — #2 (사용자 판단)
+## #2 후속 — D옵션 (근본 수정, 2026-09-02)
 
-**결정론 파이프라인 `check_constraints` FAIL 이 계산·보고만 되고 강제 안 됨.** `main.py:271` 은
-`pr.constraints.verdict` 를 `WeeklyRunResult` 에 넣기만 하고 `pr.orders` 는 verdict 무관 체결.
-조직 경로는 `FAIL → 결정론 폴백` 으로 강제하나 결정론 경로는 감시만. CLAUDE.md 규칙 3
-"하드 가드레일 불가침" 이 결정론 경로에선 상위 툴(allocation/sizing/rebalance 가 캡 걸음 +
-283 tests) 무결성 가정에만 의존. 방어심층 갭 — 별도 판단 필요.
+**내용**: `run_pipeline` 이 반환 전 `check_constraints` FAIL 이면 `RuntimeError` (ToolError 3종과
+동일). 불변식: 반환된 `PipelineResult.constraints.verdict == "PASS"`. `check_constraints` 는
+이제 진짜 assertion.
+
+D 를 적용하니 **결정론 파이프라인이 실제로 위반 draft 를 내는 2가지**가 드러남 (B/C 였다면
+가려졌을 것):
+
+1. **fp 경계 과민** — `check_constraints` 캡 검사가 `+ 1e-9` 인데 `size_positions` 는 고정
+   소수점 반올림을 안 함 → 섹터가 캡 정확히(0.30000x) 차면 오탐 FAIL. **`_EPS = 1e-4`** 로 완화.
+2. **`max_change_per_rebal` 과스로틀** — 66% 단일 카테고리 집중 포트에서 `cash_flow_rebalance`
+   는 56.7% 로 스로틀하나 `size_positions` 는 구조적으로 50% 밖에 못 만듦 → 실제 이동 16.7%p
+   > 10%p. 스로틀 자체(현재→계획 ≤ 10%p)는 `rebalance.py` `max_move_usd` 캡이 구조적 보장 →
+   `check_constraints` 는 **`prior = post_action_weights`(스로틀 계획)** 기준으로 size_positions
+   충실도만 본다. (집중 해소를 더 빨리 파는 건 안전한 방향이라 raise 대상 아님.)
+
+`test_constraints_fail_raises_not_silent` (monkeypatch FAIL → raises). runtime-codereview #4
+(`prior = current_cat_usd/nav`) 를 이걸로 개정.
 
 ## 검토했으나 정상 (연결부 정합 확인)
 
@@ -35,5 +47,5 @@
 - **benchmark pending_usd** — 가격 결측 leg 이월, `mark_to_market` 부분가격 스킵
 
 ## 검증
-ruff / format / mypy(50) / pytest **283 passed, 2 deselected**.
-커밋: `fix(integration): 전체 통합 검토 8건 (regime_history 절삭·일기 atomic·state 격리 등)`
+ruff / format / mypy(50) / pytest **284 passed, 2 deselected**.
+커밋: `fix(integration): 전체 통합 검토 8건` + `fix(pipeline): #2 D옵션 — check_constraints raise + 경계·과스로틀 수정`

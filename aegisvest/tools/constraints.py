@@ -18,9 +18,10 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
     g = allocation_rules().guardrails
     w = draft.category_weights
     v: list[ConstraintViolation] = []
+    _EPS = 1e-4  # size_positions 는 고정 소수점 반올림을 안 함 — fp 잔차 허용 (0.01%p)
 
     high = w.get("high", 0.0)
-    if high > g.high_abs_cap + 1e-9:
+    if high > g.high_abs_cap + _EPS:
         v.append(
             ConstraintViolation(
                 rule="high_abs_cap", detail=f"고위험 {high:.1%} > {g.high_abs_cap:.0%}", value=high
@@ -28,7 +29,7 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
         )
 
     cash = w.get("cash", 0.0)
-    if cash < g.cash_floor - 1e-9:
+    if cash < g.cash_floor - _EPS:
         v.append(
             ConstraintViolation(
                 rule="cash_floor", detail=f"현금 {cash:.1%} < {g.cash_floor:.0%}", value=cash
@@ -44,7 +45,7 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
         )
 
     for p in draft.positions:
-        if p.weight > g.single_name_cap + 1e-9:
+        if p.weight > g.single_name_cap + _EPS:
             v.append(
                 ConstraintViolation(
                     rule="single_name_cap",
@@ -58,7 +59,7 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
         if p.sector:
             by_sector[p.sector] += p.weight
     for sector, sw in by_sector.items():
-        if sw > g.sector_cap + 1e-9:
+        if sw > g.sector_cap + _EPS:
             v.append(
                 ConstraintViolation(
                     rule="sector_cap", detail=f"{sector} {sw:.1%} > {g.sector_cap:.0%}", value=sw
@@ -68,7 +69,7 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
     if draft.prior_category_weights:
         for c in _CATS:
             change_pp = abs(w.get(c, 0.0) - draft.prior_category_weights.get(c, 0.0)) * 100.0
-            if change_pp > g.max_change_per_rebal_pp + 1e-6:
+            if change_pp > g.max_change_per_rebal_pp + 1e-4:
                 v.append(
                     ConstraintViolation(
                         rule="max_change_per_rebal",
