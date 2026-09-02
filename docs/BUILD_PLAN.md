@@ -98,6 +98,10 @@
   2차 실행 회상 주입). 모듈 단위 테스트가 못 잡는 크로스모듈 배선(감사 버그 부류) 검증.
   Layer 0 규율(일기 태그 = 결정론 레짐, LLM 주장 아님) + 크루 실패 흡수 + DRY_RUN 무저장.
   3 tests. 검토: [reviews/e2e.md](reviews/e2e.md). 279 passed.
+- [x] **감사 이후 추가분 독립 `/code-review`** — ponytail·DRY_RUN·E2E·배당 rate 커밋 재검토.
+  4건 수정: E2E 시간의존(→run_id 상대날짜) · docker hf-cache bind mount 가 bge-m3 베이크 섀도
+  (→명명 볼륨) · recall_log 절삭 비원자적 · 배당 docstring. 골든/데스크로스 창·DRY_RUN 일기는
+  노트. 검토: [reviews/post-e2e-codereview.md](reviews/post-e2e-codereview.md). 282 passed.
 
 ## 배포 (병행)
 

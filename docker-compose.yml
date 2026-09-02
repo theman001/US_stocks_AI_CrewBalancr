@@ -16,7 +16,6 @@ services:
     env_file: .env
     environment:
       TZ: ${TZ:-Asia/Seoul}
-      # bge-m3 가중치는 이미지에 베이크됨 (Dockerfile). 볼륨으로도 유지해 재빌드 없이 캐시.
       HF_HOME: /app/hf-cache
     configs:
       - source: crontab
@@ -26,11 +25,16 @@ services:
       - ${AEGIS_DATA:-./data}/cache:/app/data/cache
       - ${AEGIS_DATA:-./data}/outputs:/app/outputs
       - ${AEGIS_DATA:-./data}/logs:/app/logs
-      - ${AEGIS_DATA:-./data}/hf-cache:/app/hf-cache
+      # 명명 볼륨 — 첫 생성 시 이미지에 베이크된 bge-m3 가중치를 복사받는다 (Dockerfile).
+      # bind mount 였다면 빈 호스트 디렉터리가 베이크본을 가려 재다운로드됨.
+      - hf-cache:/app/hf-cache
     restart: unless-stopped
     # bge-m3(~2.3GB 상주) + chromadb + crew — 판단 일기 RAG 배치·회상 시 필요. 2g 면 OOM.
     mem_limit: 4g
     cpus: 2.0
+
+volumes:
+  hf-cache:  # bge-m3 가중치 (~2.3GB) — 이미지 베이크본을 첫 up 시 채우고 이후 유지
 
 configs:
   crontab:

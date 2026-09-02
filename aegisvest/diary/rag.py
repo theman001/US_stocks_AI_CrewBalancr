@@ -27,6 +27,7 @@ from aegisvest.config import get_settings
 from aegisvest.diary.logger import diary_lock, load_entries, save_entries
 from aegisvest.diary.schema import clip_tokens, derive_tags, diary_taxonomy
 from aegisvest.schemas import DiaryEntry
+from aegisvest.tools._io import _write_atomic
 
 _log = logging.getLogger("aegisvest.diary.rag")
 
@@ -324,8 +325,8 @@ def _log_recall(cases: list[RecalledCase]) -> None:
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
         lines = path.read_text(encoding="utf-8").splitlines()
-        if len(lines) > _RECALL_LOG_MAX:
-            path.write_text("\n".join(lines[-_RECALL_LOG_MAX:]) + "\n", encoding="utf-8")
+        if len(lines) > _RECALL_LOG_MAX:  # 절삭은 원자적 — recall() 은 diary_lock 밖이라 동시 가능
+            _write_atomic(path, ("\n".join(lines[-_RECALL_LOG_MAX:]) + "\n").encode("utf-8"))
     except OSError as e:  # 회상 로그 실패로 크루를 멈추지 않는다
         _log.warning("recall_log 기록 실패: %s", e)
 

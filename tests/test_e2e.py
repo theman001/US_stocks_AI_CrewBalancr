@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pandas as pd
 import pytest
 
@@ -117,8 +119,9 @@ _RESP: dict[str, str] = {
 }
 
 
-def _frame(end_price: float) -> pd.DataFrame:
-    idx = pd.to_datetime(["2026-09-02", "2027-01-15"])
+def _frame(run_d: dt.date, end_price: float) -> pd.DataFrame:
+    # 채점창 [run_id, evaluate_after] 안에 두 점이 들어와야 초과수익 채점이 의미를 가진다.
+    idx = pd.to_datetime([run_d.isoformat(), (run_d + dt.timedelta(weeks=10)).isoformat()])
     return pd.DataFrame({"Close": [100.0, end_price]}, index=idx)
 
 
@@ -182,25 +185,28 @@ def test_full_weekly_lifecycle(e2e: ScriptedLLM, monkeypatch: pytest.MonkeyPatch
     # ─── Phase 2: 시간 경과 + 채점 (섀도 이력·레짐 이력 시드) ───
     sh = state.load_model("shadow.json", ShadowState)
     assert sh is not None
-    # sleeve_stance/allocation_tilt 채점창은 run_id(9/02)+12주 ≈ 11/25 — 그 안에 종료 NAV 필요
+    run_d = dt.date.fromisoformat(res1.run_id)  # 벽시계 비의존 — 시드·채점일을 run_id 기준으로
+    # sleeve_stance/allocation_tilt 채점창 = [run_id, run_id+12주]. 종료 NAV 를 그 안에 둔다.
+    nav_date = (run_d + dt.timedelta(weeks=10)).isoformat()
     for pf, mult in ((sh.organization, 1.15), (sh.deterministic, 1.05)):  # org 가 아웃퍼폼
         end = pf.history[-1].nav_usd * mult
-        pf.history.append(NavPoint(date="2026-11-20", nav_usd=end, nav_krw=end * 1400))
+        pf.history.append(NavPoint(date=nav_date, nav_usd=end, nav_krw=end * 1400))
     state.save_model("shadow.json", sh)
     state.save_list(
         "regime_history.json",
         [
-            RegimeHistoryPoint(date=d, total_score=0)
-            for d in ("2026-09-15", "2026-10-15", "2026-11-15")
+            RegimeHistoryPoint(date=(run_d + dt.timedelta(weeks=w)).isoformat(), total_score=0)
+            for w in (2, 5, 8)
         ],
     )
     monkeypatch.setattr(
         ev,
         "history",
-        lambda t, ttl: _frame(80.0 if t == "L1" else 105.0),  # L1 하락, SPY 소폭 상승
+        lambda t, ttl: _frame(run_d, 80.0 if t == "L1" else 105.0),  # L1 하락, SPY 소폭 상승
     )
 
-    counts = ev.run(today="2027-02-01")  # 모든 horizon 도래
+    due = max(e.evaluate_after[-1] for e in load_entries() if e.evaluate_after)
+    counts = ev.run(today=due)  # 모든 horizon 도래
     assert counts["evaluated"] >= 3
     graded = [e for e in load_entries() if e.status == "evaluated"]
     assert any(e.claim_type == "regime_call" and e.outcome for e in graded)

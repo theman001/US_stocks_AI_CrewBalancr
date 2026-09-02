@@ -122,9 +122,9 @@ def _annuals(bs: pd.DataFrame, inc: pd.DataFrame, cf: pd.DataFrame) -> list[dv.A
 
 
 def _annual_dividends(divs: pd.Series) -> list[tuple[int, float]]:
-    """(연도, 정규화 연간배당). calendar-year 합산은 지급시기 이동(2017 TCJA 선지급 등)·
-    특별배당에 취약 → 연도별 지급액 중앙값 * 정규 지급빈도(전 기간 최빈 연간 지급횟수)로 환산.
-    5회 지급된 해도 4회 지급된 해도 rate 는 같게 나온다."""
+    """(연도, 정규화 연간배당). calendar-year 합산은 지급시기 이동(2017 TCJA 선지급 등)에
+    취약 → 연도별 지급액 중앙값 * 정규 지급빈도(전 기간 최빈 연간 지급횟수)로 환산.
+    분기·월 배당이면 특별배당 1건은 중앙값이 걸러낸다 (연 1회 배당사는 완화 안 됨)."""
     if divs is None or divs.empty:
         return []
     idx = pd.DatetimeIndex(divs.index)

@@ -40,6 +40,7 @@ Phase 4 빌드 전 전 `aegisvest/` 를 7패스로 재검토. ~46 findings / ~43
 | [data-tools](data-tools-codereview.md) | macro_data · market_data · fundamentals · news · _io · _prices (dropna 최신봉 손실 · 캐시 손상 · _cagr 기준연도) |
 | [scoring-derived](scoring-derived-codereview.md) | scoring · _derived · breadth · universe · config (폭 4w 분모 · roic 결측 · piotroski 부분점수) |
 | [4-post](4-post-codereview.md) | 4-1~4-5 빌트인 `/code-review` (동시성 fcntl 락 · _normalize_regime · 회상 guardrail) |
+| [post-e2e](post-e2e-codereview.md) | 감사 이후 추가분 (ponytail·DRY_RUN·E2E·배당 rate) — E2E 시간의존 · docker 볼륨 섀도 · recall_log 원자성 |
 
 ## 그 외
 
