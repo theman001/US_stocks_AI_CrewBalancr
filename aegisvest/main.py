@@ -181,7 +181,7 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
                 portfolio=org_pf,
                 prices=pr.prices,
                 run_id=run_id,
-                persist_diary=not s.dry_run,  # DRY_RUN — 일기·RAG 미기록
+                dry_run=s.dry_run,  # DRY_RUN — 일기·RAG·Slack 노트·회상 스킵 (state/ 무접촉)
             )
         except Exception:  # 크루 실패가 결정론 파이프라인·모의투자를 막지 않는다
             _log.exception("조직 크루 실행 실패 — 결정론 결과로 진행")

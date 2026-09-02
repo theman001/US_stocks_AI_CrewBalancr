@@ -100,9 +100,10 @@
   3 tests. 검토: [reviews/e2e.md](reviews/e2e.md). 279 passed.
 - [x] **감사 이후 추가분 독립 `/code-review`** — ponytail·DRY_RUN·E2E·배당 rate 커밋 재검토.
   4건 수정: E2E 시간의존(→run_id 상대날짜) · docker hf-cache bind mount 가 bge-m3 베이크 섀도
-  (→명명 볼륨) · recall_log 절삭 비원자적 · 배당 docstring. 이어 노트 2건도 사용자 판단으로 수정:
-  **DRY_RUN 엄격 계약** (`run_organization(persist_diary=)` 스레딩 — 드라이런은 일기·RAG 도 미기록) +
-  **골든/데스크로스 상태 기반** (`spx_sma_50 < spx_sma_200`, `spx_sma_*_prev` 필드 제거).
+  (→명명 볼륨) · recall_log 절삭 비원자적 · 배당 docstring. 이어 노트도 사용자 판단으로 수정:
+  **DRY_RUN 엄격 계약** (`run_organization(dry_run=)` 스레딩 — 드라이런은 일기·RAG·회상·Slack
+  노트 전부 스킵, `state/` 무접촉) + **골든/데스크로스 상태 기반** (`spx_sma_50 < spx_sma_200`,
+  `spx_sma_*_prev` 제거) + crisis 픽스처 현실화 (`death_cross` 발동).
   검토: [reviews/post-e2e-codereview.md](reviews/post-e2e-codereview.md). 282 passed.
 
 ## 배포 (병행)
@@ -110,8 +111,9 @@
 - [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
   배치를 `evaluate && reviewer && rag` 체이닝, `mem_limit 4g`(bge-m3 상주), `HF_HOME` 볼륨.
   Dockerfile 이 빌드 시 bge-m3 가중치 베이크 (명명 볼륨 `hf-cache` 로 첫 up 시 채움 — bind
-  mount 면 베이크본이 가려짐). `DRY_RUN` **엄격 계약** (main: shadow/benchmarks/regime/일기/RAG
-  미기록, 미체결, 알림 스킵, 크루·리포트는 실행. 기본 true — `.env` 에서 false 로 가동).
+  mount 면 베이크본이 가려짐). `DRY_RUN` **엄격 계약** (`state/` 무접촉: shadow/benchmarks/regime/
+  일기/RAG/chroma 미생성, 회상·Slack 노트·미체결·알림 스킵. 크루·리포트·`outputs/` 는 실행.
+  기본 true — `.env` 에서 false 로 가동).
 - [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
 - [ ] Radxa Rock 5 ITX 배포 검증 (ARM64) — **docker build 는 이 개발환경에 docker 없어 미검증**
 

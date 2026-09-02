@@ -22,10 +22,11 @@
 
 ## 노트 → 사용자 판단 후 수정 (2026-09-02)
 
-- **DRY_RUN 이 일기 기록** → **옵션 1: `run_organization(persist_diary=)` 스레딩**. `main` 이
-  `persist_diary=not s.dry_run` 전달 → `make_task`/`_callback`/`_Ctx`/`_log_org_diary` 가 가드.
-  엄격 계약 = 드라이런은 shadow·regime·일기·RAG 전부 미기록. `log()` 전역 의미는 안 건드림
-  (오케스트레이터가 결정). `test_dry_run_full_chain_no_persistence` → `load_entries() == []`.
+- **DRY_RUN 이 일기 기록** → **옵션 1: `run_organization(dry_run=)` 스레딩** (최초엔 `persist_diary`,
+  후속에서 개명). `main` 이 `dry_run=s.dry_run` 전달 → `make_task`/`_callback`/`_Ctx`/
+  `_log_org_diary`/`_recall_block` 가 가드. 엄격 계약 = 드라이런은 shadow·regime·일기·RAG·
+  회상·Slack 노트 전부 스킵, `state/` 무접촉. `log()` 전역 의미는 안 건드림 (오케스트레이터가
+  결정). `test_dry_run_full_chain_no_persistence` → `load_entries() == []` + chroma 미생성.
 - **골든/데스크로스 창** → **옵션 1: 상태 기반**. `spx_sma_50 < spx_sma_200` (1거래일 prev
   비교 제거). `yield_curve_inversion` 과 동일 패턴. `MacroData.spx_sma_*_prev` 2필드 제거
   (다른 사용처 없음). report/phase-4 §7.2 결정 노트.
@@ -42,8 +43,8 @@
 `e32da9e` (A: persist_diary 스레딩 / B: 크로스 상태 기반) 독립 재검토.
 
 **확인 (정상)**
-- 일기 쓰기 경로 3곳 전부 게이트: `crew._log_diary` (`_callback` 의 `persist_diary`),
-  `organization._log_org_diary` ×2 (`if persist_diary`). 누락 없음.
+- 일기 쓰기 경로 3곳 전부 게이트: `crew._log_diary` (`_callback` 의 `dry_run`),
+  `organization._log_org_diary` ×2 (`if not dry_run`). 누락 없음.
 - `run_reviewer` 는 `make_task`/callback 안 쓰고 Task 직접 생성 → `diary.log()` 미호출.
   post_mortem 은 기존 항목에 append (월요일 배치, 드라이런엔 evaluated 항목 없음). 갭 아님.
 - `_last_float` 이 NaN→None 변환 → `spx_sma_50/200` 은 `float|None`, `is not None` 가드로 충분.
@@ -52,18 +53,19 @@
 - `build_query` 도 스냅샷에서 `signal:death_cross` 를 방출 → 쿼리·문서 코호트 매칭 일관
   (이벤트 버전은 쿼리가 태그를 거의 안 달아 매칭 실패했음 — 상태 버전이 실제로 더 나음).
 
-**노트 (수정 안 함)**
-- `_recall_block` 은 드라이런에도 실행 → `state/chroma/` 빈 디렉터리 생성 (ChromaDB 클라이언트
-  init). 벡터·`recall_log` 는 안 씀 (순수 드라이런은 코퍼스 비어 `_MIN_CORPUS` 게이트 →
-  `recall()` `[]` → `_log_recall` early return). 스키마일 뿐 데이터 아님 + 스모크가 주입
-  경로를 태워봐야 함 → 유지. "state/ 완전 무접촉" 을 원하면 `_recall_block` 을 게이트.
-- `post_agent_note` 는 드라이런에도 발송 (research/decisions 채널) — 최종 alerts 요약만 스킵.
-  비대칭이나 "관측은 흐르고 결정·지속만 스킵" 원칙과 일관.
+**노트**
 - `death_cross`/`golden_cross` 가 상태 태그화 → 추세장엔 다수 항목에 붙어 약한 판별자
   (`regime:bear` 급). 위기 시 signal 다발이면 8-태그 캡이 밀어낼 수 있음. `yield_curve_inversion`
   과 동일 성질. 사용자 선택한 트레이드오프.
-- [기존, 이 diff 무관] crisis 픽스처가 `spx_sma_50 == spx_sma_200` 라 통합 테스트에선
-  death_cross 미발동. 위기 regime 엔 비현실적 — 선택: 픽스처 50<200 + `death_cross` assert.
+
+**후속 처리 (2026-09-02) — 리뷰 노트 소규모 2건**
+- `persist_diary` (bool, 기본 True) → **`dry_run`** (bool, 기본 False) 로 개명. 이제 일기뿐
+  아니라 `_recall_block` (→ `state/chroma` 생성 방지)·`post_agent_note` (Slack 노트) 까지 게이트.
+  드라이런 = `state/` **완전 무접촉**, 크루 출력은 리포트·`outputs/<run_id>/crew.json` 에만.
+  `test_dry_run_full_chain_no_persistence` 에 `not (state_dir/"chroma").exists()` 추가.
+- crisis 픽스처 현실화 — `make_pipeline_result(crisis=True)` 매크로에 `spx_last=88`,
+  `spx_sma_50=94`, `spx_sma_200=100` (SPX 가 양 SMA 아래, 50<200). `test_diary_tags_include_
+  macro_signals` 에 `signal:death_cross` assert (태그 7개, 8-캡 이내).
 
 ## 검증
 ruff / format / mypy(50) / pytest **282 passed, 2 deselected**.

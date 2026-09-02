@@ -139,6 +139,7 @@ def test_diary_tags_include_macro_signals(make_pipeline_result_crisis: PipelineR
     assert "rates_dir:hiking" in rc.tags
     assert "signal:credit_spread_widening" in rc.tags
     assert "signal:vix_term_backwardation" in rc.tags
+    assert "signal:death_cross" in rc.tags  # spx_sma_50 94 < spx_sma_200 100 (상태 기반)
     assert rc.data_snapshot["hy_oas_bp"] == 800.0  # macro 원자료가 snapshot 에 그대로
 
 

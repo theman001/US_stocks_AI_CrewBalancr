@@ -270,4 +270,5 @@ def test_dry_run_full_chain_no_persistence(
     assert res.crew_ran is True  # 크루는 돌지만
     assert state.load_model("shadow.json", ShadowState) is None  # shadow 미저장
     assert state.load_list("regime_history.json", RegimeHistoryPoint) == []  # regime 미저장
-    assert load_entries() == []  # 엄격 계약 — 일기·RAG 도 미기록 (persist_diary=False)
+    assert load_entries() == []  # 엄격 계약 — 일기·RAG·회상 전부 스킵 (dry_run=True)
+    assert not (config.get_settings().state_dir / "chroma").exists()  # 회상 스킵 → chroma 미생성

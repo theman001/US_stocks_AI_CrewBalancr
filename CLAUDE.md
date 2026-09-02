@@ -20,7 +20,7 @@ Phase 3 완료 (3a 코어, 3a-11 보류, 3b 조직 완편). **Phase 4 빌드 완
 독립 `/code-review` 완료 — pre-Phase-4 7패스 + 4-post + 감사 이후 추가분(post-e2e),
 전 `aegisvest/` 커버 (~50 수정: TWR 기여일·섀도 레짐 이중계산·guardrail 우회·state atomic·
 배당 rate 정규화 등). E2E 통합 테스트(`tests/test_e2e.py`) + ponytail 정리(죽은 config·의존성).
-**DRY_RUN 엄격 계약** — 드라이런은 shadow/regime/일기/RAG 미기록, 미체결, 알림 스킵.
+**DRY_RUN 엄격 계약** — 드라이런은 `state/` 무접촉 (shadow/regime/일기/RAG/chroma), 회상·미체결·알림 스킵.
 `docs/reviews/*.md` (인덱스 `docs/reviews/README.md`). 282 tests. `main` 에 병합됨.
 포트 상태는 `state/shadow.json` (organization = 실제, deterministic = 병행 시뮬).
 파이썬 3.12 (`.python-version`). 인디케이터는 pandas-ta 없이 직접 계산.

@@ -149,7 +149,16 @@ def make_pipeline_result(
         post_action_weights={"low": 0.05, "mid": 0.04, "high": 0.0, "cash": 0.91},
     )
     mc = (
-        macro_stub(as_of=as_of, vix=40.0, vix3m=35.0, hy_oas_bp=800.0, hy_oas_4w_change_bp=150.0)
+        macro_stub(
+            as_of=as_of,
+            vix=40.0,
+            vix3m=35.0,
+            hy_oas_bp=800.0,
+            hy_oas_4w_change_bp=150.0,
+            spx_last=88.0,  # 위기 = SPX 가 양 SMA 아래, 50<200 (death_cross)
+            spx_sma_50=94.0,
+            spx_sma_200=100.0,
+        )
         if crisis
         else macro_stub(as_of=as_of)
     )

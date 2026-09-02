@@ -67,7 +67,7 @@ class _Ctx:
     diary_ids: list[str]
     inputs: dict[str, str]
     recall: str = ""
-    persist_diary: bool = True
+    dry_run: bool = False
 
     def run(self, key: str, *, extra_desc: str = "") -> Any:
         task: Task = make_task(
@@ -81,7 +81,7 @@ class _Ctx:
             diary_ids=self.diary_ids,
             extra_desc=extra_desc,
             recall=self.recall if key in _RECALL_TASKS else "",
-            persist_diary=self.persist_diary,
+            dry_run=self.dry_run,
         )
         Crew(
             agents=[self.agents[self.tdefs[key]["agent"]]],
@@ -230,9 +230,10 @@ def run_organization(
     pending_contribution_usd: float = 0.0,
     run_id: str | None = None,
     llm: Any | None = None,
-    persist_diary: bool = True,
+    dry_run: bool = False,
 ) -> CrewOutcome:
-    """`persist_diary=False` (DRY_RUN): 크루는 돌지만 판단 일기·RAG 에 아무것도 안 남긴다."""
+    """`dry_run=True` (DRY_RUN): 크루는 돌지만 일기·RAG·Slack 노트·회상 전부 스킵 —
+    `state/` 무접촉. 크루 출력은 리포트·`outputs/<run_id>/crew.json` 에만 남는다."""
     run_id = run_id or pr.as_of
     quiet_crew_console()
     agents = _agents(llm)
@@ -240,7 +241,7 @@ def run_organization(
     allowed = _num_payload(pr)
     diary_ids: list[str] = []
     inputs = build_inputs(pr)
-    recall = _recall_block(pr)
+    recall = "" if dry_run else _recall_block(pr)  # 회상 = ChromaDB 접근 → state/chroma 생성
 
     bundle: AnalystBundle = run_analysts(
         pr,
@@ -251,7 +252,7 @@ def run_organization(
         diary_ids=diary_ids,
         inputs=inputs,
         diary_recall=recall,
-        persist_diary=persist_diary,
+        dry_run=dry_run,
     )
     inputs.update(_pm_inputs(pr, bundle.research_view.excluded_tickers))
     inputs["research_view_json"] = bundle.research_view.model_dump_json()
@@ -265,7 +266,7 @@ def run_organization(
         diary_ids=diary_ids,
         inputs=inputs,
         recall=recall,
-        persist_diary=persist_diary,
+        dry_run=dry_run,
     )
     flow = _OrgFlow(ctx)
     flow.kickoff()
@@ -292,7 +293,7 @@ def run_organization(
         org_orders = list(pr.orders)
     else:
         org_orders = _org_orders(sizing, pr, portfolio, prices, pending_contribution_usd)
-    if persist_diary:
+    if not dry_run:
         _log_org_diary(st, org_draft, pr, run_id, diary_ids)
 
     return CrewOutcome(
