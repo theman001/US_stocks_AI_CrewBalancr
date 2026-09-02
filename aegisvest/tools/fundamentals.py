@@ -122,12 +122,22 @@ def _annuals(bs: pd.DataFrame, inc: pd.DataFrame, cf: pd.DataFrame) -> list[dv.A
 
 
 def _annual_dividends(divs: pd.Series) -> list[tuple[int, float]]:
+    """(연도, 정규화 연간배당). calendar-year 합산은 지급시기 이동(2017 TCJA 선지급 등)·
+    특별배당에 취약 → 연도별 지급액 중앙값 * 정규 지급빈도(전 기간 최빈 연간 지급횟수)로 환산.
+    5회 지급된 해도 4회 지급된 해도 rate 는 같게 나온다."""
     if divs is None or divs.empty:
         return []
     idx = pd.DatetimeIndex(divs.index)
-    annual: dict[Any, Any] = divs.groupby(idx.year).sum().to_dict()
     this_year = dt.date.today().year
-    return sorted((int(y), float(v)) for y, v in annual.items() if int(y) < this_year)
+    by_year: dict[int, list[float | None]] = {}
+    for y, v in zip(idx.year.tolist(), divs.tolist(), strict=True):
+        if y < this_year:
+            by_year.setdefault(y, []).append(float(v))
+    if not by_year:
+        return []
+    counts = [len(p) for p in by_year.values()]
+    freq = max(sorted(set(counts)), key=counts.count)  # 분기=4 · 월=12 · 반기=2 · 연=1
+    return sorted((y, (_median(p) or 0.0) * freq) for y, p in by_year.items())
 
 
 def _pe_5y_median(inc: pd.DataFrame, ticker: str, ttl: float) -> float | None:

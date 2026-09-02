@@ -149,8 +149,9 @@
 ### D. 소규모 개선 (아무때나)
 - [x] **watchdog `dry_run` 배선** (2026-09-02) — `get_settings().dry_run` 이면 crisis_state/
   regime_history/nav 미저장 + 위기 알림·주간 트리거 스킵 (계산·로그만). main 과 동일 패턴.
-- [ ] **배당 지급시기 왜곡** — 연간총액 대신 per-payment rate 감지 (Q4 선지급 오탐 리셋 방지).
-  yfinance `.dividends` 는 payment 단위 → 규칙적 지급 rate × 빈도 추정 필요
+- [x] **배당 지급시기 왜곡** (2026-09-02) — `_annual_dividends` 를 rate 정규화로 교체:
+  연도별 지급액 중앙값 * 전 기간 최빈 지급빈도. 2017 TCJA 선지급·특별배당에 불변.
+  이미 받아오던 `.dividends` (payment 단위) 활용 — 신규 데이터 소스 불필요.
 - [x] **`recall_log.jsonl` 로테이션** (2026-09-02) — `_RECALL_LOG_MAX=520` (~10년치) 초과 시
   앞부분 절삭. 주 ~1행이라 실질 영향 없지만 무한 증가 방지.
 - [x] **`docs/reviews/` 인덱스** (2026-09-02) — [reviews/README.md](reviews/README.md) (단계 게이트 17 + 감사 7 + 기타 2)

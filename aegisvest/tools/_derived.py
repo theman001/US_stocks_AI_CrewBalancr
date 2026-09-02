@@ -107,14 +107,15 @@ def altman_z(years: list[AnnualFinancials], market_cap: float | None) -> float |
 
 
 def dividend_streak_years(annual_dividends: list[tuple[int, float]]) -> int | None:
-    """(연도, 연간배당총액) 리스트 → 연속 증배 연수. 오름차순/내림차순 무관."""
+    """(연도, 정규화 연간배당) 리스트 → 연속 증배 연수. 오름차순/내림차순 무관.
+
+    입력은 `_annual_dividends` 가 rate*빈도로 정규화한 값 — 지급시기 이동은 여기서 안 봐도 된다."""
     if len(annual_dividends) < 2:
         return None
     ordered = sorted(annual_dividends, key=lambda x: x[0])  # 연도 오름차순
     streak = 0
     for prev, cur in pairwise(ordered):
         # 연속 연도 + 증배일 때만 카운트 — 연도 갭(결측)은 연속성 끊김으로 처리.
-        # 지급시기 이동(Q4 선지급 등)으로 인한 연간총액 왜곡은 per-payment 데이터 필요 (미지원).
         if cur[0] == prev[0] + 1 and cur[1] > prev[1] + 1e-9:
             streak += 1
         else:

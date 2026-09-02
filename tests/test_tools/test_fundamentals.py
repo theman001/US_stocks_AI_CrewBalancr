@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from aegisvest.schemas import Fundamentals, ToolError
+from aegisvest.tools import _derived as dv
 from aegisvest.tools import fundamentals as fun
 
 _COLS = pd.to_datetime(["2025-09-30", "2024-09-30", "2023-09-30", "2022-09-30", "2021-09-30"])
@@ -133,6 +134,36 @@ def test_schema_and_derived() -> None:
     assert r.altman_z is not None
     assert r.fcf_payout == pytest.approx(15.0 / 95.0)
     assert r.eps_positive_years_10 == 5
+
+
+def test_annual_dividends_survives_payment_timing_shift() -> None:
+    # 분기배당·매년 rate 상승. 2021-Q1 을 2020-12 로 선지급 → 2020:5회 / 2021:3회.
+    idx = pd.to_datetime(
+        [
+            "2019-03-01",
+            "2019-06-01",
+            "2019-09-01",
+            "2019-12-01",
+            "2020-03-01",
+            "2020-06-01",
+            "2020-09-01",
+            "2020-12-01",
+            "2020-12-28",
+            "2021-06-01",
+            "2021-09-01",
+            "2021-12-01",
+            "2022-03-01",
+            "2022-06-01",
+            "2022-09-01",
+            "2022-12-01",
+        ]
+    )
+    amt = [0.40] * 4 + [0.44] * 4 + [0.48] * 4 + [0.52] * 4
+    annual = dict(fun._annual_dividends(pd.Series(amt, index=idx)))
+    assert list(annual) == [2019, 2020, 2021, 2022]
+    assert annual[2020] < annual[2021]  # calendar-sum 이면 2020(2.24) > 2021(1.44) 로 리셋
+
+    assert dv.dividend_streak_years(list(annual.items())) == 3
 
 
 def test_empty_ticker() -> None:

@@ -30,6 +30,10 @@ CrewAI 프레임워크 + DeepSeek LLM API 기반 미국 주식(S&P 500 / NASDAQ)
 > - LOW/MID EPS 흑자 연수 10년→4년 (yfinance 무료 4~5년만 제공)
 > - MID β 하한 0.9→0.70, Rule of 40 은 하드 필터에서 제외 → 스코어링 전용
 > - 데이터 소스: FMP 무료 티어 제한으로 **yfinance** 로 전환. `eps_revision_3m`·`credit_rating` 은 소스 없음(None).
+>
+> **연속 증배 측정 (2026-09-02)** — "연속 증배 ≥ 10년" 은 임계값 그대로. 계산은 calendar-year
+> 배당 합계가 아니라 **연도별 지급액 중앙값 × 정규 지급빈도** (rate 정규화). 2017 TCJA
+> 선지급처럼 지급월이 밀린 해나 특별배당이 streak 를 잘못 리셋하는 것 방지. `_annual_dividends`.
 
 ### 🟢 저위험 — 배당 성장 & 우량 가치주
 

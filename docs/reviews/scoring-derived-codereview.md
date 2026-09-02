@@ -27,6 +27,12 @@
 - 신규 테스트 6: roic LTD 근사·piotroski 정규화·배당갭 리셋·음수PE 중립·비숫자 no-raise·bool_env 빈값
 - 커밋: `fix(scoring-derived): 독립 code-review 8건 (폭 4w 편향·roic 결측·piotroski 부분점수·음수PE·배당갭)`
 
+## 후속 (2026-09-02)
+- 8번의 "지급시기 왜곡은 per-payment 필요 (미지원)" 부분 해소 — `_annual_dividends` 를
+  calendar-sum → rate 정규화(연도별 중앙값 * 최빈 지급빈도)로 교체. `.dividends` 는 이미
+  payment 단위로 받아오고 있었다. 2017 TCJA 선지급·특별배당에 streak 오탐 리셋 없음.
+  테스트 `test_annual_dividends_survives_payment_timing_shift`.
+
 ## 감사 완료 — 6 패스
 money-path / guardrails-pm / regime-screen / runtime / data-tools / scoring-derived.
 전 `aegisvest/` 커버. 4-post-review(Phase 4) 포함 총 **7 패스, ~46 findings, ~43 수정**.
