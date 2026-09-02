@@ -92,8 +92,10 @@ signal_rules:
   breadth_thrust: "pct_above_200dma_4w_change is not None and pct_above_200dma_4w_change >= 20"
   yield_curve_inversion: "yc_10y_3m_bp is not None and yc_10y_3m_bp < 0"
   yield_curve_resteepening: "yc_10y_3m_4w_change_bp is not None and yc_10y_3m_4w_change_bp >= 15 and (yc_10y_3m_prev_bp or 0) < 0"
-  death_cross: "None not in (spx_sma_50, spx_sma_200, spx_sma_50_prev, spx_sma_200_prev) and spx_sma_50 < spx_sma_200 and spx_sma_50_prev >= spx_sma_200_prev"
-  golden_cross: "None not in (spx_sma_50, spx_sma_200, spx_sma_50_prev, spx_sma_200_prev) and spx_sma_50 > spx_sma_200 and spx_sma_50_prev <= spx_sma_200_prev"
+  # 상태 기반 (yield_curve_inversion 처럼) — 주간 크루 주기론 "방금 교차"(1거래일 창)를
+  # 거의 못 잡는다. 회상은 유사 국면 검색이라 교차 시점보다 현재 배열이 유용.
+  death_cross: "spx_sma_50 is not None and spx_sma_200 is not None and spx_sma_50 < spx_sma_200"
+  golden_cross: "spx_sma_50 is not None and spx_sma_200 is not None and spx_sma_50 > spx_sma_200"
 
 max_tags_per_entry: 8
 similarity_floor: 0.55

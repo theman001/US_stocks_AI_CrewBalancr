@@ -196,6 +196,7 @@ def make_task(
     is_async: bool = False,
     extra_desc: str = "",
     recall: str = "",
+    persist_diary: bool = True,
 ) -> Task:
     td = tdefs[key]
     # 회상 블록이 붙으면 hedge_only — 카드의 수치(유사도·과거 결과)는 참고 컨텍스트이지
@@ -208,7 +209,7 @@ def make_task(
         context=context,
         output_pydantic=_TASKS[key].model,
         guardrail=no_fabricated_numbers(allowed, hedge_only=hedge_only),
-        callback=_callback(key, pr, run_id, diary_ids),
+        callback=_callback(key, pr, run_id, diary_ids, persist_diary=persist_diary),
         async_execution=is_async,
     )
 
@@ -232,6 +233,7 @@ def run_analysts(
     diary_ids: list[str],
     inputs: dict[str, str],
     diary_recall: str = "",
+    persist_diary: bool = True,
 ) -> AnalystBundle:
     """① Macro + ②③④ (async 병렬) → ⑤ Research Director. Process.sequential."""
 
@@ -247,6 +249,7 @@ def run_analysts(
             diary_ids=diary_ids,
             is_async=is_async,
             recall=diary_recall if key in _RECALL_TASKS else "",
+            persist_diary=persist_diary,
         )
 
     t_macro = mk("macro_brief", [], is_async=True)
@@ -344,7 +347,9 @@ def _out(task: Task, model: type[Any]) -> Any:
     return parsed
 
 
-def _callback(key: str, pr: PipelineResult, run_id: str, sink: list[str]) -> Callable[[Any], None]:
+def _callback(
+    key: str, pr: PipelineResult, run_id: str, sink: list[str], *, persist_diary: bool = True
+) -> Callable[[Any], None]:
     spec = _TASKS[key]
 
     def cb(task_output: Any) -> None:
@@ -353,6 +358,8 @@ def _callback(key: str, pr: PipelineResult, run_id: str, sink: list[str]) -> Cal
         post_agent_note(
             spec.agent_name, spec.emoji, _summary(key, model), raw[:1500], channel=spec.channel
         )
+        if not persist_diary:  # DRY_RUN — 일기·RAG 오염 방지 (매매 안 하니 판단 기록도 안 남긴다)
+            return
         entry = _log_diary(key, model, pr, run_id, spec.agent_name)
         if entry is not None:
             sink.append(entry)

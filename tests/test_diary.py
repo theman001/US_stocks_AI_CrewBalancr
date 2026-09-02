@@ -129,27 +129,13 @@ def test_eval_signal_rules_missing_field_no_crash() -> None:
 
 
 def test_golden_death_cross_signal_rules() -> None:
-    # 50SMA 가 200 위로 방금 교차 → golden_cross
-    golden = eval_signal_rules(
-        {
-            "spx_sma_50": 5200.0,
-            "spx_sma_200": 5100.0,
-            "spx_sma_50_prev": 5090.0,
-            "spx_sma_200_prev": 5100.0,
-        }
-    )
+    # 상태 기반 — 50 > 200 배열이면 golden, 50 < 200 이면 death
+    golden = eval_signal_rules({"spx_sma_50": 5200.0, "spx_sma_200": 5100.0})
     assert "golden_cross" in golden and "death_cross" not in golden
-    death = eval_signal_rules(
-        {
-            "spx_sma_50": 5000.0,
-            "spx_sma_200": 5100.0,
-            "spx_sma_50_prev": 5110.0,
-            "spx_sma_200_prev": 5100.0,
-        }
-    )
+    death = eval_signal_rules({"spx_sma_50": 5000.0, "spx_sma_200": 5100.0})
     assert "death_cross" in death and "golden_cross" not in death
-    # 전일값 결측이면 미발동 (NaN·None 안전)
-    assert eval_signal_rules({"spx_sma_50": 5200.0, "spx_sma_200": 5100.0}) == []
+    # SMA 결측이면 미발동 (NaN·None 안전)
+    assert eval_signal_rules({"spx_sma_50": None, "spx_sma_200": 5100.0}) == []
 
 
 def test_magnitude_of_tiers() -> None:

@@ -38,7 +38,7 @@ def test_schema_all_fields() -> None:
     assert r.vix is not None
     assert r.pct_above_200dma is None  # 3a-5 예정
     assert "fred:no_api_key" not in r.stale_fields
-    assert r.spx_sma_50_prev is not None and r.spx_sma_200_prev is not None  # 크로스 판정용
+    assert r.spx_sma_50 is not None and r.spx_sma_200 is not None  # 크로스 배열 판정용
 
 
 def test_no_fred_key_still_returns_with_stale(monkeypatch: pytest.MonkeyPatch) -> None:

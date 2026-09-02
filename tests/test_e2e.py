@@ -270,4 +270,4 @@ def test_dry_run_full_chain_no_persistence(
     assert res.crew_ran is True  # 크루는 돌지만
     assert state.load_model("shadow.json", ShadowState) is None  # shadow 미저장
     assert state.load_list("regime_history.json", RegimeHistoryPoint) == []  # regime 미저장
-    assert load_entries()  # 일기는 기록됨 (크루 콜백은 dry_run 과 무관)
+    assert load_entries() == []  # 엄격 계약 — 일기·RAG 도 미기록 (persist_diary=False)

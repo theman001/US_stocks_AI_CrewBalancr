@@ -367,8 +367,8 @@ signal_rules:
   breadth_thrust:           "pct_above_200dma_4w_change >= 20"
   yield_curve_inversion:    "yc_10y_3m_bp < 0"
   yield_curve_resteepening: "yc_10y_3m_4w_change_bp >= 15 and yc_10y_3m_prev_bp < 0"
-  death_cross:              "sma50 < sma200 and sma50_prev >= sma200_prev"
-  golden_cross:             "sma50 > sma200 and sma50_prev <= sma200_prev"
+  death_cross:              "spx_sma_50 < spx_sma_200"   # 상태 기반 (아래 노트)
+  golden_cross:             "spx_sma_50 > spx_sma_200"
 
 max_tags_per_entry: 8
 similarity_floor: 0.55
@@ -376,6 +376,12 @@ recency_halflife_months: 18
 ```
 
 태그는 `차원:값` 네임스페이스.
+
+> **golden/death_cross 상태 기반으로 (2026-09-02, post-e2e review)** — 원안은 `sma50_prev`
+> (1거래일 전) 로 "방금 교차" 이벤트를 잡으려 했으나, 일기를 쓰는 주간 크루 주기에선 교차가
+> 실행 직전 거래일에 나야만 걸려 사실상 미발동. 다른 signal_rules 는 4주 창/상태 기반.
+> `yield_curve_inversion` 처럼 **현재 SMA 배열**(50 vs 200)만 본다 — 회상은 유사 국면 검색이라
+> 교차 시점보다 배열이 유용. `MacroData.spx_sma_*_prev` 필드 제거.
 
 ### 7.2 태그 부여 — 결정론 70% / LLM 30%
 

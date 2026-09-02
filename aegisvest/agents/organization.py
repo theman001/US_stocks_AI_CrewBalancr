@@ -67,6 +67,7 @@ class _Ctx:
     diary_ids: list[str]
     inputs: dict[str, str]
     recall: str = ""
+    persist_diary: bool = True
 
     def run(self, key: str, *, extra_desc: str = "") -> Any:
         task: Task = make_task(
@@ -80,6 +81,7 @@ class _Ctx:
             diary_ids=self.diary_ids,
             extra_desc=extra_desc,
             recall=self.recall if key in _RECALL_TASKS else "",
+            persist_diary=self.persist_diary,
         )
         Crew(
             agents=[self.agents[self.tdefs[key]["agent"]]],
@@ -228,7 +230,9 @@ def run_organization(
     pending_contribution_usd: float = 0.0,
     run_id: str | None = None,
     llm: Any | None = None,
+    persist_diary: bool = True,
 ) -> CrewOutcome:
+    """`persist_diary=False` (DRY_RUN): 크루는 돌지만 판단 일기·RAG 에 아무것도 안 남긴다."""
     run_id = run_id or pr.as_of
     quiet_crew_console()
     agents = _agents(llm)
@@ -247,6 +251,7 @@ def run_organization(
         diary_ids=diary_ids,
         inputs=inputs,
         diary_recall=recall,
+        persist_diary=persist_diary,
     )
     inputs.update(_pm_inputs(pr, bundle.research_view.excluded_tickers))
     inputs["research_view_json"] = bundle.research_view.model_dump_json()
@@ -260,6 +265,7 @@ def run_organization(
         diary_ids=diary_ids,
         inputs=inputs,
         recall=recall,
+        persist_diary=persist_diary,
     )
     flow = _OrgFlow(ctx)
     flow.kickoff()
@@ -286,7 +292,8 @@ def run_organization(
         org_orders = list(pr.orders)
     else:
         org_orders = _org_orders(sizing, pr, portfolio, prices, pending_contribution_usd)
-    _log_org_diary(st, org_draft, pr, run_id, diary_ids)
+    if persist_diary:
+        _log_org_diary(st, org_draft, pr, run_id, diary_ids)
 
     return CrewOutcome(
         run_id=run_id,

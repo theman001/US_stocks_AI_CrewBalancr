@@ -176,7 +176,13 @@ def run(*, trigger: str = "scheduled") -> WeeklyRunResult:
             # 지연 import — 키 없으면 crewai(무거움) 를 안 불러온다
             from aegisvest.agents.organization import run_organization  # noqa: PLC0415
 
-            crew = run_organization(pr, portfolio=org_pf, prices=pr.prices, run_id=run_id)
+            crew = run_organization(
+                pr,
+                portfolio=org_pf,
+                prices=pr.prices,
+                run_id=run_id,
+                persist_diary=not s.dry_run,  # DRY_RUN — 일기·RAG 미기록
+            )
         except Exception:  # 크루 실패가 결정론 파이프라인·모의투자를 막지 않는다
             _log.exception("조직 크루 실행 실패 — 결정론 결과로 진행")
     else:

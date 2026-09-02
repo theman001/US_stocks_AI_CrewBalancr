@@ -122,8 +122,6 @@ class _Yf:
     spx_last: float | None = None
     spx_sma_50: float | None = None
     spx_sma_200: float | None = None
-    spx_sma_50_prev: float | None = None
-    spx_sma_200_prev: float | None = None
     spx_50_slope_20d: float | None = None
     stale: list[str] = field(default_factory=list)
     dates: list[str] = field(default_factory=list)
@@ -171,8 +169,6 @@ class _Yf:
         self.spx_last = float(c.iloc[-1])
         self.spx_sma_50 = ind.sma(c, 50)
         self.spx_sma_200 = ind.sma(c, 200)
-        self.spx_sma_50_prev = ind.sma_prev(c, 50, back=1)
-        self.spx_sma_200_prev = ind.sma_prev(c, 200, back=1)
         sma50_20ago = ind.sma_prev(c, 50, back=20)
         if self.spx_sma_50 is not None and sma50_20ago:
             self.spx_50_slope_20d = self.spx_sma_50 / sma50_20ago - 1.0
@@ -204,8 +200,6 @@ def macro_data() -> MacroData:
         spx_last=yf.spx_last,
         spx_sma_200=yf.spx_sma_200,
         spx_sma_50=yf.spx_sma_50,
-        spx_sma_200_prev=yf.spx_sma_200_prev,
-        spx_sma_50_prev=yf.spx_sma_50_prev,
         spx_50_slope_20d=yf.spx_50_slope_20d,
         pct_above_200dma=None,  # 3a-5
         pct_above_200dma_4w_change=None,  # 3a-5
