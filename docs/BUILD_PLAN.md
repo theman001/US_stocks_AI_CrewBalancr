@@ -91,7 +91,7 @@
   검토: [reviews/scoring-derived-codereview.md](reviews/scoring-derived-codereview.md). 274 tests.
 
 > **감사 완료** — 독립 `/code-review` 9 패스 (4-post + post-e2e + whole-integration 포함),
-> 전 `aegisvest/` 커버, ~61 findings / ~58 수정. `docs/reviews/README.md` 인덱스.
+> 전 `aegisvest/` 커버, ~64 findings / ~61 수정. `docs/reviews/README.md` 인덱스.
 
 - [x] **E2E 통합 테스트** — `tests/test_e2e.py`: 실 `run_pipeline`(데이터 소스만 mock) +
   실 `run_organization`(ScriptedLLM) + 실 일기 체인(로깅→evaluate→reviewer→rag.backfill→
@@ -108,9 +108,9 @@
 - [x] **전체 통합 검토** — 섹터 간 연결부 중심 (`whole-integration`). 9건 수정: `_MAX_HISTORY`
   40→70 (regime_history 절삭이 regime_call 12주 채점창 침범) · `save_entries` atomic ·
   state 손상 파일 `.corrupt` 격리 · `_diary_snapshot` 통합 · dead param 주석 · stale docstring 3 ·
-  가격결측 타깃 note · 일기 id dedup · **#2 D옵션** (`run_pipeline` 이 `check_constraints` FAIL
-  시 raise — D 적용 중 fp 경계 과민·max_change 과스로틀 2건 추가 발견·수정).
-  검토: [reviews/whole-integration-codereview.md](reviews/whole-integration-codereview.md). 284 passed.
+  가격결측 타깃 note · 일기 id dedup · **#2 D옵션** (`run_pipeline` 이 **절대 가드레일** FAIL
+  시 raise, max_change 는 note — D 적용 중 fp 경계·소프트조건 크래시 등 후속 `/code-review` 로 재수정).
+  검토: [reviews/whole-integration-codereview.md](reviews/whole-integration-codereview.md). 286 passed.
 
 ## 배포 (병행)
 

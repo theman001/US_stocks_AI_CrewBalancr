@@ -29,7 +29,7 @@
 ## 독립 `/code-review` 감사
 
 Pre-Phase-4 7패스 + 4-post + post-e2e + whole-integration = 9패스, 전 `aegisvest/` 커버.
-~61 findings / ~58 수정 — 대부분 "조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로
+~64 findings / ~61 수정 — 대부분 "조용한 왜곡" (크래시 아닌 미묘한 숫자 오류) 으로
 Gate B 성공 판정을 오염시킬 부류. whole-integration 은 섹터 간 연결부 전담.
 
 | 패스 | 대상 |

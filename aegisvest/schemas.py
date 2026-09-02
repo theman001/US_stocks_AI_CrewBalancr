@@ -432,7 +432,9 @@ class PipelineResult(BaseModel):
     rebalance_plan: RebalancePlan
     sizing: SizingResult
     draft: DraftPortfolio
-    constraints: ConstraintResult = Field(description="항상 PASS — FAIL 이면 run_pipeline 이 raise")
+    constraints: ConstraintResult = Field(
+        description="절대 가드레일은 항상 PASS (위반 시 raise). max_change_per_rebal 은 FAIL 가능"
+    )
     orders: list[Order]
     prices: dict[str, float] = Field(description="주문 실행용 — 호출자가 PaperBroker 에 전달")
     notes: list[str] = Field(default_factory=list)

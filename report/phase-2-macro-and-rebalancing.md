@@ -115,9 +115,10 @@ Phase 1의 5개 축 유지, "경기" 축만 복합 지표로 교체.
 
 > **구현 노트 (2026-09-02, whole-integration #2)** — 10%p 스로틀(현재→계획)은
 > `cash_flow_rebalance` 의 `max_move_usd` 캡이 구조적으로 보장. `check_constraints` 의
-> `max_change_per_rebal` 은 `size_positions` 가 그 계획에 충실했나(계획→실현 ≤ 10%p)만 검증
-> — 집중 포트 해소 시 구조적 캡으로 실현이 계획보다 더 팔릴 수 있으나 안전 방향이라 허용.
-> 절대 가드레일(고위험 20%·단일 8%·섹터 30%·현금 하한)은 `run_pipeline` 이 위반 시 `RuntimeError`.
+> `max_change_per_rebal` 은 실제 이동(현재→실현)을 재나, **raise 대상이 아님** (note+WARNING).
+> 집중 포트 해소·screen 데이터 결측(category 0)·티어 강등 시 구조적으로 10%p 를 넘을 수 있는데,
+> 이들은 소프트 조건이라 주간 실행을 멈추면 안 됨. 절대 가드레일(고위험 20%·단일 8%·섹터 30%·
+> 현금 하한·비중합)만 `run_pipeline` 이 위반 시 `RuntimeError`.
 
 ---
 

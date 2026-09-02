@@ -18,7 +18,9 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
     g = allocation_rules().guardrails
     w = draft.category_weights
     v: list[ConstraintViolation] = []
-    _EPS = 1e-4  # size_positions 는 고정 소수점 반올림을 안 함 — fp 잔차 허용 (0.01%p)
+    # size_positions 가 weight 를 여러 단계 round(_, 6) 누적 → ~1e-5 잔차. 5e-5 면 넉넉하고
+    # 경제적으로 무의미 (8% 캡에 0.005%p). weights_sum 의 0.005 와 달리 절대캡은 타이트하게.
+    _EPS = 5e-5
 
     high = w.get("high", 0.0)
     if high > g.high_abs_cap + _EPS:
@@ -67,9 +69,11 @@ def check_constraints(draft: DraftPortfolio) -> ConstraintResult:
             )
 
     if draft.prior_category_weights:
+        # rate 정책 — pipeline._check_draft 는 이 위반을 raise 하지 않고 note 로만 남긴다.
+        # 스로틀 스텝(10%p)과 경계가 겹치고 구조적 1스텝 초과가 흔해 1%p 버퍼 (fp·경계 노이즈 배제).
         for c in _CATS:
             change_pp = abs(w.get(c, 0.0) - draft.prior_category_weights.get(c, 0.0)) * 100.0
-            if change_pp > g.max_change_per_rebal_pp + 1e-4:
+            if change_pp > g.max_change_per_rebal_pp + 1.0:
                 v.append(
                     ConstraintViolation(
                         rule="max_change_per_rebal",

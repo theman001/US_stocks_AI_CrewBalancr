@@ -18,23 +18,27 @@
 
 ## #2 후속 — D옵션 (근본 수정, 2026-09-02)
 
-**내용**: `run_pipeline` 이 반환 전 `check_constraints` FAIL 이면 `RuntimeError` (ToolError 3종과
-동일). 불변식: 반환된 `PipelineResult.constraints.verdict == "PASS"`. `check_constraints` 는
-이제 진짜 assertion.
+**내용** (`b051444` + 후속 `/code-review` 반영): `run_pipeline` 이 반환 전
+**절대 가드레일**(고위험캡·단일·섹터·현금하한·비중합) 위반이면 `RuntimeError` (ToolError 3종과
+동일). `max_change_per_rebal` 은 raise 대상 아님 — rate 정책이라 구조적 초과 가능. 불변식:
+반환된 draft 는 절대 가드레일을 항상 만족.
 
 D 를 적용하니 **결정론 파이프라인이 실제로 위반 draft 를 내는 2가지**가 드러남 (B/C 였다면
 가려졌을 것):
 
-1. **fp 경계 과민** — `check_constraints` 캡 검사가 `+ 1e-9` 인데 `size_positions` 는 고정
-   소수점 반올림을 안 함 → 섹터가 캡 정확히(0.30000x) 차면 오탐 FAIL. **`_EPS = 1e-4`** 로 완화.
-2. **`max_change_per_rebal` 과스로틀** — 66% 단일 카테고리 집중 포트에서 `cash_flow_rebalance`
-   는 56.7% 로 스로틀하나 `size_positions` 는 구조적으로 50% 밖에 못 만듦 → 실제 이동 16.7%p
-   > 10%p. 스로틀 자체(현재→계획 ≤ 10%p)는 `rebalance.py` `max_move_usd` 캡이 구조적 보장 →
-   `check_constraints` 는 **`prior = post_action_weights`(스로틀 계획)** 기준으로 size_positions
-   충실도만 본다. (집중 해소를 더 빨리 파는 건 안전한 방향이라 raise 대상 아님.)
+1. **fp 경계 과민** — `check_constraints` 캡 검사가 `+ 1e-9` 인데 `size_positions` 는 weight 를
+   여러 단계 `round(_, 6)` 누적(~1e-5 잔차) → 섹터가 캡 정확히 차면 오탐 FAIL. **`_EPS = 5e-5`**.
+2. **`max_change_per_rebal` 구조적 초과** — 집중 포트 해소·screen 결측(category 0)·스필·티어
+   강등 시 실제 이동 > 10%p. 스로틀 자체(현재→계획 ≤ 10%p)는 `rebalance.max_move_usd` 캡이
+   구조적 보장 → `check_constraints` 는 계속 `prior = current_cat_usd/nav` (실제 이동)를 재나,
+   위반은 **raise 가 아니라 note + WARNING**. screen 결측 같은 소프트 조건이 주간 실행을
+   크래시시키면 안 됨. 임계는 `+ 1.0`%p 버퍼 (fp·경계 노이즈 배제).
 
-`test_constraints_fail_raises_not_silent` (monkeypatch FAIL → raises). runtime-codereview #4
-(`prior = current_cat_usd/nav`) 를 이걸로 개정.
+**후속 `/code-review` (2026-09-02)**: 첫 D 커밋이 (a) 모든 FAIL 에 raise (max_change 포함 →
+screen 결측이 크래시), (b) `prior = post_action_weights` 로 실제-이동 검증 상실, (c) `_EPS`
+코멘트 오류·과대(1e-4) 를 지적 → 위처럼 재수정. `test_absolute_guardrail_fail_raises` +
+`test_max_change_fail_is_note_not_raise` + `test_screen_outage_zeroes_held_category_does_not_crash`.
+runtime-codereview #4 는 이걸로 개정 (raise 는 절대 가드레일만).
 
 ## 검토했으나 정상 (연결부 정합 확인)
 
@@ -47,5 +51,6 @@ D 를 적용하니 **결정론 파이프라인이 실제로 위반 draft 를 내
 - **benchmark pending_usd** — 가격 결측 leg 이월, `mark_to_market` 부분가격 스킵
 
 ## 검증
-ruff / format / mypy(50) / pytest **284 passed, 2 deselected**.
-커밋: `fix(integration): 전체 통합 검토 8건` + `fix(pipeline): #2 D옵션 — check_constraints raise + 경계·과스로틀 수정`
+ruff / format / mypy(50) / pytest **286 passed, 2 deselected**.
+커밋: `fix(integration): 전체 통합 검토 8건` + `fix(pipeline): #2 D옵션 raise` +
+`fix(pipeline): D옵션 /code-review 반영 — raise 를 절대 가드레일로 한정`

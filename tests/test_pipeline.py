@@ -20,6 +20,7 @@ from aegisvest.schemas import (
     ScoringResult,
     ScreenedTicker,
     ScreenResult,
+    ToolError,
 )
 from aegisvest.tools import portfolio_math
 from tests.fixtures.macro import macro
@@ -103,8 +104,8 @@ def test_first_run_all_buys_and_valid() -> None:
     assert res.constraints.verdict == "PASS"  # run_pipeline 이 반환했으면 항상 PASS (불변식)
 
 
-def test_prior_category_weights_populated_so_max_change_gate_runs() -> None:
-    # prior = post_action_weights(스로틀 계획). size_positions 가 계획에 충실하면 PASS.
+def test_first_run_ramp_up_respects_10pp_throttle() -> None:
+    # prior = 현재 카테고리 비중(current_cat_usd/nav). 빈 포트 첫 배분은 카테고리당 ≤ 10%p.
     pf = PaperPortfolio(cash_usd=1000.0)
     res = pipeline.run_pipeline(portfolio=pf, pending_contribution_usd=0.0)
     assert res.draft.prior_category_weights  # 채워짐 (게이트가 실제로 돌 수 있게)
@@ -114,8 +115,8 @@ def test_prior_category_weights_populated_so_max_change_gate_runs() -> None:
         )
         for c in ("low", "mid", "high")
     }
-    assert all(ch <= 0.10 + 1e-4 for ch in changes.values())  # 계획↔실현 편차 ≤ 10%p
-    assert res.constraints.verdict == "PASS"  # 위반이면 run_pipeline 이 raise 했을 것
+    assert all(ch <= 0.11 for ch in changes.values())  # 스로틀 10%p + 구조적 여유
+    assert res.constraints.verdict == "PASS"  # 절대 가드레일·변동상한 모두 통과
 
 
 def test_post_action_weights_sum_to_one() -> None:
@@ -142,19 +143,55 @@ def test_dropped_holding_is_sold() -> None:
     assert any(o.ticker == "ZZZ" and o.side == "sell" for o in res.orders)
 
 
-def test_constraints_fail_raises_not_silent(monkeypatch: pytest.MonkeyPatch) -> None:
-    # 툴 버그로 위반 draft 가 나오는 상황을 시뮬 — run_pipeline 은 조용히 반환하면 안 됨
-
+def test_absolute_guardrail_fail_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 절대 가드레일 위반(툴 버그 시뮬) → run_pipeline 은 조용히 반환하면 안 됨
     monkeypatch.setattr(
         pipeline,
         "check_constraints",
         lambda _d: ConstraintResult(
             verdict="FAIL",
-            violations=[ConstraintViolation(rule="high_abs_cap", detail="x", value=0.35)],
+            violations=[ConstraintViolation(rule="sector_cap", detail="Tech 35%", value=0.35)],
         ),
     )
-    with pytest.raises(RuntimeError, match="하드 가드레일 위반"):
+    with pytest.raises(RuntimeError, match="절대 가드레일 위반"):
         pipeline.run_pipeline(portfolio=PaperPortfolio(), pending_contribution_usd=100.0)
+
+
+def test_max_change_fail_is_note_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    # max_change_per_rebal 은 rate 정책 — 구조적 초과(screen 결측 등)는 체결 진행 + note
+    monkeypatch.setattr(
+        pipeline,
+        "check_constraints",
+        lambda _d: ConstraintResult(
+            verdict="FAIL",
+            violations=[
+                ConstraintViolation(rule="max_change_per_rebal", detail="mid 42%p", value=42.0)
+            ],
+        ),
+    )
+    res = pipeline.run_pipeline(portfolio=PaperPortfolio(), pending_contribution_usd=100.0)
+    assert res.constraints.verdict == "FAIL"  # 리포트엔 남음
+    assert any("리밸 변동상한 초과" in n for n in res.notes)  # 운영자에게 가시화
+
+
+def test_screen_outage_zeroes_held_category_does_not_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 실 시나리오: 포트가 mid 를 크게 물었는데 그 주 mid 스크린이 데이터 결측 → category 0
+    # → max_change_per_rebal 실제 위반. 소프트 조건이므로 체결 진행해야 (크래시 금지).
+    def _screen_mid_down(cat: str, universe: str = "combined", limit: int | None = None):
+        if cat.upper() == "MID":
+            return ToolError(error="yfinance 결측", field="mid")
+        return _screen(cat, universe, limit)
+
+    monkeypatch.setattr(pipeline, "screen", _screen_mid_down)
+    pf = PaperPortfolio(
+        cash_usd=100.0,
+        positions={"MZ": PaperPosition(shares=6.0, avg_cost_usd=50.0, category="mid")},
+    )
+    res = pipeline.run_pipeline(portfolio=pf, pending_contribution_usd=0.0)  # raise 안 함
+    assert res.sizing.category_weights.get("mid", 0.0) == 0.0  # mid 비워짐
+    assert any("변동상한" in n or "screen(mid)" in n for n in res.notes)
 
 
 def test_crisis_snaps_high_to_zero() -> None:
