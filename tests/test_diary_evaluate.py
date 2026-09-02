@@ -178,6 +178,25 @@ def test_regime_call_matches_history() -> None:
     assert o["verdict"] == "hit"
 
 
+def test_regime_call_normalizes_freeform_and_expires_on_unknown() -> None:
+    assert evaluate._normalize_regime("cautiously bullish") == "BULL"
+    assert evaluate._normalize_regime("Bear (weakening)") == "BEAR"
+    assert evaluate._normalize_regime("sideways chop") is None
+
+    end = _log_entry(
+        run_id="2026-01-01",
+        agent="Macro",
+        claim_type="regime_call",
+        claim="c",
+        reasoning="r",
+        data_snapshot={},
+        decision={"regime": "sideways chop"},  # 파싱 불가
+    )
+    save_list("regime_history.json", [RegimeHistoryPoint(date=end, total_score=8)])
+    evaluate.run(today=end)
+    assert load_entries()[0].status == "expired"  # 오채점 대신 만료
+
+
 def test_needs_reflection_forced_for_miss_and_low_attribution() -> None:
 
     base = {

@@ -29,6 +29,7 @@ def _mock_embed(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
         return out
 
     monkeypatch.setattr(rag, "_embed", fake)
+    monkeypatch.setattr(rag, "_MIN_CORPUS", 1)  # 임계는 전용 테스트에서 검증
     rag._client.cache_clear()
     return calls
 
@@ -151,6 +152,16 @@ def _index(*entries: DiaryEntry) -> None:
 
 def test_recall_empty_on_cold_start() -> None:
     assert rag.DiaryRAG().recall("현재 상황", ["regime:neutral"]) == []
+
+
+def test_recall_skips_below_min_corpus(
+    monkeypatch: pytest.MonkeyPatch, _mock_embed: list[list[str]]
+) -> None:
+    monkeypatch.setattr(rag, "_MIN_CORPUS", 5)
+    _index(*(_entry(f"e{i}", situation=f"[상황] e{i} ~0.9~", with_lesson=False) for i in range(3)))
+    _mock_embed.clear()
+    assert rag.DiaryRAG().recall("현재", ["regime:neutral"]) == []
+    assert _mock_embed == []  # bge-m3 임베딩 자체를 안 함 (모델 로드 회피)
 
 
 def test_recall_returns_above_floor_only() -> None:

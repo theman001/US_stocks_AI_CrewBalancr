@@ -188,6 +188,27 @@ def test_new_semi_open_tag_recorded_to_pending() -> None:
     assert "some_new_event" in pending["event"]  # 플래그
 
 
+def test_tag_overflow_sheds_signals_not_reflection_tags() -> None:
+    full = [
+        "regime:bear",
+        "claim_type:exclusion",
+        "sleeve:high",
+        "action:exclusion",
+        "magnitude:large",
+        "signal:credit_spread_widening",
+        "signal:breadth_deterioration",
+        "signal:vix_spike",
+    ]  # 이미 8개 (max_tags_per_entry), signal 3
+    _seed("exclusion", tags=full)
+    reviewer.run(
+        llm=_llm()
+    )  # _GOOD: event:regulation, theme:ai_software, mistake:crowding_blindspot
+    tags = load_entries()[0].tags
+    assert len(tags) == 8
+    assert {"event:regulation", "theme:ai_software", "mistake:crowding_blindspot"} <= set(tags)
+    assert not any(t.startswith("signal:") for t in tags)  # signal 부터 버림
+
+
 @pytest.mark.llm
 def test_live_deepseek_reviewer() -> None:
     """실 DeepSeek (`pytest -m llm`). 계정 잔액 필요."""

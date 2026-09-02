@@ -69,8 +69,6 @@ class _Ctx:
     recall: str = ""
 
     def run(self, key: str, *, extra_desc: str = "") -> Any:
-        if self.recall and key in _RECALL_TASKS:
-            extra_desc = f"\n\n{self.recall}{extra_desc}"
         task: Task = make_task(
             key,
             [],
@@ -81,6 +79,7 @@ class _Ctx:
             run_id=self.run_id,
             diary_ids=self.diary_ids,
             extra_desc=extra_desc,
+            recall=self.recall if key in _RECALL_TASKS else "",
         )
         Crew(
             agents=[self.agents[self.tdefs[key]["agent"]]],

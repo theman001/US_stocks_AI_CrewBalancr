@@ -155,7 +155,7 @@ def test_diary_recall_injected_into_judgment_tasks(
     real = crew_mod.make_task
 
     def spy(key: str, ctx: object, **kw: object) -> object:
-        seen.append((key, str(kw.get("extra_desc", ""))))
+        seen.append((key, f"{kw.get('recall', '')}{kw.get('extra_desc', '')}"))
         return real(key, ctx, **kw)  # type: ignore[arg-type]
 
     monkeypatch.setattr(crew_mod, "make_task", spy)

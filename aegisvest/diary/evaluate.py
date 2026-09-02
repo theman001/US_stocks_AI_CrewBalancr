@@ -24,7 +24,7 @@ import random
 import pandas as pd
 
 from aegisvest.config import get_settings
-from aegisvest.diary.logger import load_entries, save_entries
+from aegisvest.diary.logger import diary_lock, load_entries, save_entries
 from aegisvest.rules import Label, regime_rules
 from aegisvest.schemas import DiaryEntry, NavPoint, RegimeHistoryPoint, ShadowState
 from aegisvest.state import load_list, load_model
@@ -171,8 +171,16 @@ def _score_event_risk(entry: DiaryEntry) -> dict[str, object] | None:
 # ─────────────────────── regime_call ───────────────────────
 
 
+def _normalize_regime(predicted: str) -> str | None:
+    """LLM 자유서술(예: 'cautiously bullish') → CRISIS/BEAR/BULL/NEUTRAL. 불명확하면 None."""
+    p = predicted.upper()
+    for key in ("CRISIS", "BEAR", "BULL", "NEUTRAL"):  # CRISIS·BEAR 우선 (보수적)
+        if key in p:
+            return key
+    return None
+
+
 def _label_matches(predicted: str, total_score: int, label: Label) -> bool:
-    predicted = predicted.upper()
     if predicted == "CRISIS":
         return total_score <= label.bear_max  # 위기 래치는 히스토리에 없음 — 약세권 이상으로 근사
     if predicted == "BULL":
@@ -185,8 +193,11 @@ def _label_matches(predicted: str, total_score: int, label: Label) -> bool:
 def _score_regime_call(
     entry: DiaryEntry, hist: list[RegimeHistoryPoint]
 ) -> dict[str, object] | None:
-    predicted = _as_dict(entry.decision).get("regime")
-    if not isinstance(predicted, str) or not predicted:
+    raw = _as_dict(entry.decision).get("regime")
+    if not isinstance(raw, str) or not raw:
+        return None
+    predicted = _normalize_regime(raw)
+    if predicted is None:  # 파싱 불가 → 오채점 대신 expired
         return None
     start, end = entry.run_id[:10], entry.evaluate_after[-1]
     window = [h for h in hist if start <= h.date <= end]
@@ -229,33 +240,34 @@ def needs_reflection(entry: DiaryEntry) -> bool:
 def run(*, today: str | None = None) -> dict[str, int]:
     """`evaluate_after` 도래한 open 항목 채점. 반환은 카운트 요약 (호출자·CLI 공용)."""
     today = today or dt.date.today().isoformat()
-    entries = load_entries()
     shadow = load_model("shadow.json", ShadowState) or ShadowState()
     regime_history = load_list("regime_history.json", RegimeHistoryPoint)
 
     counts = {"evaluated": 0, "expired": 0, "not_due": 0, "queued_for_reflection": 0}
-    for entry in entries:
-        if entry.status != "open":
-            continue
-        if not entry.evaluate_after:  # 손상된 항목 — 채점 불가
-            entry.status = "expired"
-            counts["expired"] += 1
-            continue
-        if entry.evaluate_after[-1] > today:
-            counts["not_due"] += 1
-            continue
-        result = _score_entry(entry, shadow, regime_history)
-        if result is None:
-            entry.status = "expired"
-            counts["expired"] += 1
-            continue
-        entry.outcome = {"evaluated_at": today, **result}
-        entry.status = "evaluated"
-        counts["evaluated"] += 1
-        if needs_reflection(entry):
-            counts["queued_for_reflection"] += 1
+    with diary_lock():
+        entries = load_entries()
+        for entry in entries:
+            if entry.status != "open":
+                continue
+            if not entry.evaluate_after:  # 손상된 항목 — 채점 불가
+                entry.status = "expired"
+                counts["expired"] += 1
+                continue
+            if entry.evaluate_after[-1] > today:
+                counts["not_due"] += 1
+                continue
+            result = _score_entry(entry, shadow, regime_history)
+            if result is None:
+                entry.status = "expired"
+                counts["expired"] += 1
+                continue
+            entry.outcome = {"evaluated_at": today, **result}
+            entry.status = "evaluated"
+            counts["evaluated"] += 1
+            if needs_reflection(entry):
+                counts["queued_for_reflection"] += 1
 
-    save_entries(entries)
+        save_entries(entries)
     return counts
 
 

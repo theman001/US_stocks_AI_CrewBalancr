@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -182,17 +181,6 @@ _RECALL_TASKS = {
     "pm_draft",
     "risk_review",
 }
-_DESC_NUM = re.compile(r"[-+]?\d{1,4}(?:\.\d+)?")
-
-
-def _numbers_in(text: str) -> set[str]:
-    """extra_desc(회상 카드·반려 사유)의 수치 토큰 — 결정론 생성분이라 guardrail 이 허용."""
-    out: set[str] = set()
-    for m in _DESC_NUM.finditer(text):
-        t = m.group(0).lstrip("+")
-        bare = t.lstrip("-")
-        out |= {t, f"{t}%", bare, f"{bare}%"}
-    return out
 
 
 def make_task(
@@ -207,18 +195,19 @@ def make_task(
     diary_ids: list[str],
     is_async: bool = False,
     extra_desc: str = "",
+    recall: str = "",
 ) -> Task:
     td = tdefs[key]
-    extra_nums = _numbers_in(extra_desc) if extra_desc else None
+    # 회상 블록이 붙으면 hedge_only — 카드의 수치(유사도·과거 결과)는 참고 컨텍스트이지
+    # 이번 주 페이로드 값이 아니라서 값 대조가 무의미 (①②③⑥ 와 동일 취급). 헤지 표현은 여전히 거부.
+    hedge_only = key in _HEDGE_ONLY_TASKS or bool(recall)
     return Task(
-        description=td["description"] + extra_desc,
+        description=td["description"] + (f"\n\n{recall}" if recall else "") + extra_desc,
         expected_output=td["expected_output"],
         agent=agents[td["agent"]],
         context=context,
         output_pydantic=_TASKS[key].model,
-        guardrail=no_fabricated_numbers(
-            allowed, extra_allowed=extra_nums, hedge_only=key in _HEDGE_ONLY_TASKS
-        ),
+        guardrail=no_fabricated_numbers(allowed, hedge_only=hedge_only),
         callback=_callback(key, pr, run_id, diary_ids),
         async_execution=is_async,
     )
@@ -257,7 +246,7 @@ def run_analysts(
             run_id=run_id,
             diary_ids=diary_ids,
             is_async=is_async,
-            extra_desc=f"\n\n{diary_recall}" if diary_recall and key in _RECALL_TASKS else "",
+            recall=diary_recall if key in _RECALL_TASKS else "",
         )
 
     t_macro = mk("macro_brief", [], is_async=True)

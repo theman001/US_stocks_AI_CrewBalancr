@@ -24,7 +24,7 @@ from typing import Any, NamedTuple
 import chromadb
 
 from aegisvest.config import get_settings
-from aegisvest.diary.logger import load_entries, save_entries
+from aegisvest.diary.logger import diary_lock, load_entries, save_entries
 from aegisvest.diary.schema import clip_tokens, derive_tags, diary_taxonomy
 from aegisvest.schemas import DiaryEntry
 
@@ -41,6 +41,7 @@ _MID_SUMMARY_COSINE = 0.75  # §6.4 P — top-1 중간요약 자격
 _STRUCT_DIMS = ("claim_type", "sleeve", "regime")
 _SET_DIMS = ("signal", "event", "theme")
 _W_COSINE, _W_STRUCT, _W_RECENCY = 0.65, 0.20, 0.15  # O-A (§0 결정 O)
+_MIN_CORPUS = 5  # 이 미만이면 회상 스킵 — bge-m3 로드(수십초) 비용 > 얇은 일기 가치 (§9). 4-6 튜닝.
 
 
 # ─────────────────────── 임베딩 (bge-m3, 지연 로드) ───────────────────────
@@ -193,8 +194,8 @@ class DiaryRAG:
         self, query_text: str, situation_tags: list[str], *, k: int = 4
     ) -> list[RecalledCase]:
         """§6.3 — Q-D (메타 필터 없음, 컬렉션별 top-40) → O-A 랭킹 → dedupe → floor → 다양성."""
-        if self.situations.count() == 0 and self.lessons.count() == 0:
-            return []  # 콜드 스타트 (§9) — 무반환, 기본 지능 작동
+        if self.situations.count() + self.lessons.count() < _MIN_CORPUS:
+            return []  # 콜드/얇은 일기 (§9) — 임베딩(모델 로드) 없이 무반환, 기본 지능 작동
         q = _embed([query_text])[0]
         tax = diary_taxonomy()
         best: dict[str, RecalledCase] = {}  # entry_id → 최고 rank 후보
@@ -240,9 +241,10 @@ class DiaryRAG:
 
 def backfill() -> dict[str, int]:
     """전체 일기를 훑어 미색인 자격 항목을 벡터화. 주간 배치 (CLI)."""
-    entries = load_entries()
-    counts = DiaryRAG().index(entries)
-    save_entries(entries)
+    with diary_lock():
+        entries = load_entries()
+        counts = DiaryRAG().index(entries)
+        save_entries(entries)
     return counts
 
 

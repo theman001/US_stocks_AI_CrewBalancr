@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import fcntl
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 from aegisvest.config import get_settings
@@ -28,6 +30,24 @@ def _path() -> Path:
     d = get_settings().state_dir / "diary"
     d.mkdir(parents=True, exist_ok=True)
     return d / "entries.jsonl"
+
+
+@contextmanager
+def diary_lock() -> Iterator[None]:
+    """일기 read-modify-write 직렬화 (fcntl.flock). 호출자가 load_entries()..save_entries()
+    전체를 감싸고, log() 의 append 도 이 락을 짧게 잡는다.
+
+    ponytail: 단일 호스트 파일락 — 위기 크루가 주간 배치·`diary review` CLI 와 겹칠 때
+    entries.jsonl 전체 rewrite 가 append 를 삼키는 것을 막는다. 크로스 호스트는 해당 없음
+    (OMV 단일 스택). 배치 중에는 크루 콜백의 log() 가 잠깐 블록될 수 있음 (배치는 오프타임).
+    """
+    lock = _path().with_name(".lock")
+    with lock.open("w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
 
 
 def log(
@@ -72,7 +92,7 @@ def log(
         tags=list(tags) if tags is not None else [],
     )
     try:
-        with _path().open("a", encoding="utf-8") as fh:
+        with diary_lock(), _path().open("a", encoding="utf-8") as fh:
             fh.write(entry.model_dump_json() + "\n")
     except OSError as e:  # 디스크 문제로 크루를 멈추지 않는다
         _log.warning("일기 기록 실패 (%s): %s", entry.id, e)
@@ -100,6 +120,8 @@ def save_entries(entries: list[DiaryEntry]) -> None:
 
     ponytail: report/phase-4 §2.3 은 항목당 개별 파일을 명시하나, 갱신(채점·반성)이
     필요한 필드가 있어 단일 jsonl + 전체 rewrite 로 단순화 (3a-9 부터 유지된 결정).
+    **호출자는 `diary_lock()` 안에서 load_entries()..save_entries() 를 감싸야 한다**
+    (동시 append 유실 방지 — evaluate/reviewer/rag/governance 가 그렇게 함).
     """
     try:
         text = "\n".join(e.model_dump_json() for e in entries)
@@ -108,4 +130,4 @@ def save_entries(entries: list[DiaryEntry]) -> None:
         _log.warning("일기 갱신 실패: %s", e)
 
 
-__all__ = ["derive_tags", "load_entries", "log", "save_entries"]
+__all__ = ["derive_tags", "diary_lock", "load_entries", "log", "save_entries"]

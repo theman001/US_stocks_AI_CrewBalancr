@@ -149,6 +149,9 @@ score: 무산+무영향 → -1 (늑대소년) | 발생+예측대로 → +2 | 발
 > - **`event_risk`**: EventRisk 스키마에 예측 방향 필드가 없어, SPY 변동폭이 severity 임계
 >   (low 2% / medium 3.5% / high 5%) 이상인지로 "발생" 근사. attribution 은 항상 `low`.
 >   방향 검증하려면 EventRisk/ThematicNote 에 `predicted_direction` 추가 필요 (후속).
+> - **`regime_call`**: `MacroBrief.regime` 이 LLM 자유서술이라 `_normalize_regime` 로
+>   CRISIS/BEAR/BULL/NEUTRAL 부분일치 정규화 (CRISIS·BEAR 우선). 매칭 실패 → 오채점 대신
+>   `expired` (4-post-codereview).
 > - 임계 상수(0.5%p, ±10%, severity 임계)는 실데이터 축적 후 튜닝 (4-6). 지금은 배관 검증.
 
 ### 3.3 채점 후
@@ -229,7 +232,10 @@ rag_status:
 
 ### 5.2 인프라
 - **ChromaDB** `PersistentClient(path="state/chroma")` — 임베디드, 새 컨테이너 없음, ARM64 OK
-- **bge-m3** 로컬, 같은 컨테이너 내. RK3588 CPU 1건 ~1–3초, 연 ~200건 임베딩 = 무부담
+- **bge-m3** 로컬, 같은 컨테이너 내. RK3588 CPU 추론 1건 ~1–3초, 연 ~200건 = 무부담.
+  단 **모델 초회 로드는 별도** (~2.3GB, 수십초) — 상주 컨테이너에서 `@lru_cache` 로 1회.
+  회상(4-4)은 크루 실행 중 쿼리를 임베딩해야 해서 첫 회상 시 이 로드가 발생 (불가피).
+  얇은 일기 기간엔 `rag._MIN_CORPUS` 미만이면 회상·임베딩 자체를 스킵.
 - 검색 품질 약하면 `bge-reranker-v2-m3` 크로스 인코더 추가 (top-40 → 재랭킹) — 옵션
 
 > **⚠️ 4-3 구현 결정 (2026-09-01) — `aegisvest/diary/rag.py`.**
@@ -303,9 +309,11 @@ recall(query_text, situation_tags, k=4):
 >   회상은 그 전(§6.1)이라 모순 → `build_query` 는 스냅샷 기반 signal·regime 태그만 사용
 >   (claim_type/sleeve 는 "현재 상황"엔 없어 제외). ①②③(매크로만) → ⑤⑥⑦(강화) 2단계
 >   회상은 4-6.
-> - **주입 = `extra_desc` append** (tasks.yaml 플레이스홀더 미사용). ④ News·⑧ CIO·⑨ Reviewer
->   제외. 회상 블록의 수치(채점 결과 + 파이썬 lesson_card)는 `no_fabricated_numbers`
->   `extra_allowed` 로 통과 — fabrication 이 아니라 결정론 생성분.
+> - **주입** = `make_task(recall=)` 별도 파라미터. ④ News·⑧ CIO·⑨ Reviewer 제외.
+>   회상이 붙은 태스크(⑤⑦ 포함)는 `hedge_only=True` — 카드 수치는 참고 컨텍스트지 이번 주
+>   페이로드 값이 아니라 값 대조가 무의미 (①②③⑥ 와 동일). 헤지("약 15%")는 여전히 거부.
+>   ⑤⑦ 출력은 PM(파이썬 ±3%p 클램프)·CIO(승인만)가 소비하므로 실질 리스크 낮음.
+>   (초기 구현의 `extra_allowed` 화이트리스트는 서식 수치까지 통과시켜 폐기 — 4-post-codereview.)
 > - **랭킹 순서**: Q-D(top-40×2) → O-A rank 계산 → **entry_id dedupe(max rank)** →
 >   floor(0.55)·attribution 게이트(low 는 코사인 < 0.62 제외) → crisis 다양성(|score|≥2).
 > - **`format_recall` top-1** = `[월·verdict±score·유사도]` + 원문 120토큰 절삭 (스펙 예시의
@@ -386,7 +394,8 @@ recency_halflife_months: 18
 ### 7.4 태그 위생
 - CLOSED: 스키마가 미지값 거부
 - SEMI-OPEN: Reviewer가 YAML에서 선택. 신규값 → `state/diary/pending_tags.json` 기록, 분기 검토 전까진 작동하되 플래그
-- 항목당 최대 8 태그
+- 항목당 최대 8 태그 — 반성 시 초과하면 `signal:*` 부터 폐기 (data_snapshot 에서 재도출
+  가능, event/theme/mistake 는 반성 1회뿐이라 우선 보존) (4-post-codereview)
 - deprecated → alias 테이블로 canonical 매핑
 
 ---

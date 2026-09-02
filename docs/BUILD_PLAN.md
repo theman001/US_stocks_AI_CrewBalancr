@@ -56,6 +56,10 @@
   회상 교훈(+base rate) 리포트. `--approve/--retire/--edit --lesson/--ack-tags` 액션 (재색인은
   다음 rag 배치). `rag._log_recall` → `state/diary/recall_log.jsonl`. 6 tests. 검토:
   [reviews/4-5.md](reviews/4-5.md) (2 rounds, 0 findings). 교훈 충돌 탐지는 4-6.
+- [x] **4-post 독립 code-review** — 빌트인 `/code-review` high 로 4-1~4-5 재검토, 7건 중 6건 수정
+  (동시성 `diary_lock` fcntl · `_merge_tags` signal 우선 폐기 · 회상 guardrail hedge_only ·
+  `_normalize_regime` · reviewer 건별 save · governance JSON 가드), 1건(회상 시 모델 로드)
+  문서화 + `_MIN_CORPUS` 게이트. 검토: [reviews/4-post-codereview.md](reviews/4-post-codereview.md).
 - [ ] **4-6 튜닝** — 유사도 하한·반감기·k, RAG on/off 섀도 A/B 측정
 - [ ] **4-7 (추후) O-D** — 학습형 랭킹 가중 (채점 항목 ≥ ~150)
 

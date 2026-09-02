@@ -20,7 +20,7 @@ from collections import Counter
 from typing import Any
 
 from aegisvest.config import get_settings
-from aegisvest.diary.logger import load_entries, save_entries
+from aegisvest.diary.logger import diary_lock, load_entries, save_entries
 from aegisvest.schemas import DiaryEntry
 
 _log = logging.getLogger("aegisvest.diary.governance")
@@ -49,9 +49,11 @@ def _recall_counts() -> Counter[str]:
         if not raw.strip():
             continue
         try:
-            counts.update(str(x) for x in json.loads(raw).get("ids", []))
+            row = json.loads(raw)
         except ValueError:
             continue
+        if isinstance(row, dict):
+            counts.update(str(x) for x in row.get("ids", []))
     return counts
 
 
@@ -112,12 +114,13 @@ def report_text() -> str:
 
 
 def _mutate(entry_id: str, fn: Any) -> bool:
-    entries = load_entries()
-    for e in entries:
-        if e.id == entry_id:
-            fn(e)
-            save_entries(entries)
-            return True
+    with diary_lock():
+        entries = load_entries()
+        for e in entries:
+            if e.id == entry_id:
+                fn(e)
+                save_entries(entries)
+                return True
     _log.warning("항목 없음: %s", entry_id)
     return False
 

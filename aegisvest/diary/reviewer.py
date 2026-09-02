@@ -24,7 +24,7 @@ from typing import Any
 
 from aegisvest.config import get_settings
 from aegisvest.diary.evaluate import needs_reflection
-from aegisvest.diary.logger import load_entries, save_entries
+from aegisvest.diary.logger import diary_lock, load_entries, save_entries
 from aegisvest.diary.schema import clip_tokens, diary_taxonomy
 from aegisvest.schemas import DiaryEntry, ReviewerOutput
 
@@ -104,14 +104,18 @@ def _merge_tags(entry: DiaryEntry, out: ReviewerOutput) -> list[str]:
             "theme": [t for t in out.theme_tags if t not in known_theme],
         }
     )
-    tags = [*entry.tags]
-    tags += [f"event:{t}" for t in out.event_tags]
-    tags += [f"theme:{t}" for t in out.theme_tags]
     mistake = out.mistake_tag.strip()
+    reflection = [f"event:{t}" for t in out.event_tags] + [f"theme:{t}" for t in out.theme_tags]
     if mistake and mistake != "none" and mistake in known_mistake:  # CLOSED: 미지값 드롭
-        tags.append(f"mistake:{mistake}")
-    # ponytail: max_tags_per_entry 상한 유지 — 반성 태그가 넘치면 잘림 (드묾, 4-6 재검토)
-    return list(dict.fromkeys(tags))[: tax.max_tags_per_entry]
+        reflection.append(f"mistake:{mistake}")
+    merged = list(dict.fromkeys([*entry.tags, *reflection]))
+    # 상한(§7.4) 초과 시 signal 태그부터 버린다 — data_snapshot 에서 재도출 가능,
+    # event/theme/mistake 는 반성 시 1회뿐이라 우선 보존 (하이임팩트 pending_review 케이스).
+    if len(merged) > tax.max_tags_per_entry:
+        keep = [t for t in merged if not t.startswith("signal:")]
+        signals = [t for t in merged if t.startswith("signal:")]
+        merged = (keep + signals)[: tax.max_tags_per_entry]
+    return merged
 
 
 def _reviewer_inputs(entry: DiaryEntry) -> dict[str, str]:
@@ -167,30 +171,36 @@ def _llm_available() -> bool:
 
 
 def run(*, llm: Any = None) -> dict[str, int]:
-    """채점 완료(`evaluated`) 미반성 항목 처리. 반환은 카운트 요약 (호출자·CLI 공용)."""
-    entries = load_entries()
+    """채점 완료(`evaluated`) 미반성 항목 처리. 반환은 카운트 요약 (호출자·CLI 공용).
+
+    `diary_lock()` 전체를 잡는다 — 반성 배치(수분) 동안 크루 콜백 log() 는 블록될 수 있으나
+    배치는 오프타임이고 유실 방지가 우선. 반성 1건마다 save (유료 LLM 재과금 방지).
+    """
     have_llm = llm is not None or _llm_available()
     counts = {"gated": 0, "reflected": 0, "flagged": 0, "skipped_no_llm": 0, "errored": 0}
 
-    for entry in entries:
-        if entry.status != "evaluated" or entry.post_mortem is not None:
-            continue
-        entry.rag_status = rag_status_for(entry)
-        counts["gated"] += 1
-        if not needs_reflection(entry):
-            entry.status = "gated"  # 종결 — 상황벡터만 RAG 진입, 반성 불필요 (§3.3)
-            continue
-        if not have_llm:
-            counts["skipped_no_llm"] += 1  # evaluated 유지 — 키 생기면 다음 배치가 재시도
-            continue
-        out = _reflect(entry, llm)
-        if out is None:
-            counts["errored"] += 1
-            continue
-        counts["flagged"] += int(_apply(entry, out))
-        counts["reflected"] += 1
+    with diary_lock():
+        entries = load_entries()
+        for entry in entries:
+            if entry.status != "evaluated" or entry.post_mortem is not None:
+                continue
+            entry.rag_status = rag_status_for(entry)
+            counts["gated"] += 1
+            if not needs_reflection(entry):
+                entry.status = "gated"  # 종결 — 상황벡터만 RAG 진입, 반성 불필요 (§3.3)
+                continue
+            if not have_llm:
+                counts["skipped_no_llm"] += 1  # evaluated 유지 — 키 생기면 다음 배치가 재시도
+                continue
+            out = _reflect(entry, llm)
+            if out is None:
+                counts["errored"] += 1
+                continue
+            counts["flagged"] += int(_apply(entry, out))
+            counts["reflected"] += 1
+            save_entries(entries)  # 반성 1건은 유료 LLM 호출 — 중간 종료 시 재과금 방지
 
-    save_entries(entries)
+        save_entries(entries)  # gated 전용 변경 반영
     return counts
 
 
