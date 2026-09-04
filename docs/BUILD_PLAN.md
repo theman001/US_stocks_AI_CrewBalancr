@@ -114,14 +114,15 @@
 
 ## 배포 (병행)
 
-- [x] docker-compose.yml — OMV8 단일 스택. **Phase 4 대응 (2026-09-02)**: crontab 이 일기
-  배치를 `evaluate && reviewer && rag` 체이닝, `mem_limit 4g`(bge-m3 상주), `HF_HOME` 볼륨.
-  Dockerfile 이 빌드 시 bge-m3 가중치 베이크 (명명 볼륨 `hf-cache` 로 첫 up 시 채움 — bind
-  mount 면 베이크본이 가려짐). `DRY_RUN` **엄격 계약** (`state/` 무접촉: shadow/benchmarks/regime/
-  일기/RAG/chroma 미생성, 회상·Slack 노트·미체결·알림 스킵. 크루·리포트·`outputs/` 는 실행.
-  기본 true — `.env` 에서 false 로 가동).
-- [ ] Mattermost 웹훅 3채널 (research/decisions/alerts) — `.env`
-- [ ] Radxa Rock 5 ITX 배포 검증 (ARM64) — **docker build 는 이 개발환경에 docker 없어 미검증**
+- [x] **GHCR 사전빌드 이미지 방식** (2026-09-02) — Phase 4 로 이미지가 무거워져(torch+bge-m3)
+  Radxa 온보드 빌드 30~60분 → `.github/workflows/docker-publish.yml` (arm64 네이티브 러너)가
+  `ghcr.io/theman001/aegisvest:latest` 게시, `docker-compose.yml` 은 `image:` pull 만.
+  crontab 은 `deploy/crontab` 파일을 이미지에 COPY (configs 인라인 제거 → compose 버전 의존성 X).
+  bge-m3 는 베이크 안 함 (첫 회상 시 다운로드 → `hf-cache` 명명볼륨). `deploy/DEPLOY.md` OMV8 가이드.
+  `DRY_RUN` 엄격 계약 (state/ 무접촉·미체결·알림·회상 스킵). phase-2 §4.
+- [ ] **Radxa 첫 배포·검증** — Actions 빌드 초록 확인 → OMV-compose 붙여넣기 → `.env` (`AEGIS_DATA`·
+  `DEEPSEEK_API_KEY`·`FRED_API_KEY`·`DRY_RUN=false`) → Up. 첫 감시견/크루 로그 확인.
+- [ ] Mattermost 웹훅 (선택 — 1개는 확보됨, 채널 분리 시 3개)
 
 ## 명세 미해결 (개발 중 확정)
 

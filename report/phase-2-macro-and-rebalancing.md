@@ -189,93 +189,60 @@ Phase 1의 5개 축 유지, "경기" 축만 복합 지표로 교체.
 - **컴포즈 파일 1개**만 OMV에 등록 → 그 파일이 이미지 확보 + 스케줄 주입 + 스택 기동을 모두 처리해야 함
 - host crontab / 별도 Dockerfile·crontab 파일을 OMV에 얹는 방식 불가
 
-### 4.2 해결: 단일 컴포즈 파일 (git build context + 인라인 configs)
+### 4.2 해결: GHCR 사전빌드 이미지 (2026-09-02 확정)
 
-**트릭 2가지**
-1. `build.context`에 **git URL** → Docker가 빌드 시점에 repo를 직접 clone (Dockerfile은 repo 안에만 존재)
-2. Compose **`configs` 인라인 `content`** → crontab 텍스트를 컴포즈 파일 안에 직접 작성 (별도 crontab 파일 불필요). *요구: Docker Compose ≥ v2.23.1 — OMV8 기본 만족*
+원안은 "git build context + 인라인 configs" 였으나, Phase 4 에서 이미지가
+`torch`+`FlagEmbedding`(bge-m3) 를 포함하며 무거워져 **Radxa 온보드 빌드가 30~60분**
+소요. 대신:
 
-**스케줄러**: supercronic (컨테이너 전용 cron, Go 단일 바이너리, ARM64). 이 컨테이너가 곧 상시 프로세스 — PID 1로 유휴 대기(~5MB), 시간 되면 잡 실행. `restart: unless-stopped`로 재부팅 자동 복구.
+1. **`.github/workflows/docker-publish.yml`** — arm64 네이티브 러너(`ubuntu-24.04-arm`,
+   public repo 무료)가 이미지 빌드 → `ghcr.io/theman001/aegisvest:latest` push
+2. **`docker-compose.yml`** — `image: ghcr.io/...` 만. `build:` 없음. Radxa 는 pull.
+3. **crontab** — `deploy/crontab` 파일을 Dockerfile `COPY . .` 로 이미지에 포함
+   (`configs` 인라인 불필요 → compose 버전 의존성 제거). 스케줄 변경 = push → 재빌드.
 
-대안 비교: 평범한 `cron`(env 스크러빙·stdout 미로깅), APScheduler(의존성 트리 상주), Ofelia(Docker 소켓 노출) — 모두 supercronic보다 열위.
+repo public + 코드에 비밀 없음(키는 전부 `.env`, git-ignored) → GHCR 패키지도 public
+(첫 Actions 후 Package settings 에서 1회 전환). private 유지 시 Radxa 에서 `docker
+login ghcr.io` 1회.
 
-### 4.3 `docker-compose.yml` (repo 루트, OMV-compose에 등록하는 유일 파일)
+**스케줄러**: supercronic (컨테이너 전용 cron, Go 단일 바이너리). 이 컨테이너가 곧 상시
+프로세스 — PID 1로 유휴 대기(~5MB), 시간 되면 잡 실행. `restart: unless-stopped`.
+대안(평 `cron`·APScheduler·Ofelia) 모두 열위.
 
-```yaml
-services:
-  aegisvest:
-    build:
-      context: "https://github.com/OWNER/US_stocks_AI_CrewBalancr.git#main"
-    image: aegisvest:local
-    command: supercronic -passthrough-logs /app/crontab
-    env_file: .env                 # OMV-compose "Environment" 탭이 생성/관리
-    environment:
-      TZ: Asia/Seoul
-    configs:
-      - source: crontab
-        target: /app/crontab
-    volumes:
-      - ${AEGIS_DATA}/state:/app/state
-      - ${AEGIS_DATA}/cache:/app/data/cache
-      - ${AEGIS_DATA}/outputs:/app/outputs
-      - ${AEGIS_DATA}/logs:/app/logs
-    restart: unless-stopped
-    mem_limit: 2g
-    cpus: 1.0
+### 4.3 배포 산출물 (repo 안)
 
-configs:
-  crontab:
-    content: |
-      CRON_TZ=Asia/Seoul
-      # 매일 06:30 KST — 감시견 + 일일 매크로 점수
-      30 6 * * *  flock -n /tmp/wd.lock   python -m aegisvest.watchdog
-      # 일요일 22:00 KST — 주간 풀 크루
-      0 22 * * 0  flock -n /tmp/crew.lock python -m aegisvest.main
-```
+| 파일 | 역할 |
+|---|---|
+| `docker-compose.yml` | **OMV-compose 에 붙여넣는 유일 파일.** `image:` + 볼륨 + `hf-cache` 명명볼륨 + 리소스 상한 |
+| `Dockerfile` | GH Actions 가 사용. python:3.12-slim + supercronic + `uv sync --all-extras` + `COPY deploy/crontab`. bge-m3 는 베이크 안 함 (첫 회상 시 다운로드 → `hf-cache` 볼륨) |
+| `deploy/crontab` | 스케줄 (감시견 매일 06:30 / 크루 일 22:00 / 일기 배치 월 23:00, KST) |
+| `deploy/DEPLOY.md` | OMV8 단계별 가이드 |
+| `.github/workflows/docker-publish.yml` | arm64 이미지 빌드·push |
+| `.dockerignore` | `.git`·docs·tests·report 제외 |
 
 ### 4.4 `.env` (OMV-compose "Environment" 탭, git 미커밋)
 
-```bash
-AEGIS_DATA=/srv/dev-disk-by-uuid-XXXX/appdata/aegisvest   # OMV 공유폴더 경로
-TZ=Asia/Seoul
-DEEPSEEK_API_KEY=sk-...
-FMP_API_KEY=...
-FRED_API_KEY=...
-MODE=paper
-DRY_RUN=true
-```
+`.env.example` 참조. **최소**: `AEGIS_DATA`(OMV 공유폴더 절대경로) · `TZ` ·
+`DRY_RUN=false`(가동) · `DEEPSEEK_API_KEY` · `FRED_API_KEY`. RAM 8GB 미만이면
+`AEGIS_MEM` 하향. `STATE_DIR`/`OUTPUT_DIR`/`CACHE_DIR` 는 **설정하지 않음**
+(기본값 `state`/`outputs`/`data/cache` 가 컨테이너 `/app/` 하위 마운트와 일치).
 
-### 4.5 `Dockerfile` (repo 안, git build가 사용 — OMV는 몰라도 됨)
+### 4.5 갱신
 
-```dockerfile
-FROM python:3.11-slim
-RUN apt-get update && apt-get install -y --no-install-recommends util-linux curl \
-    && rm -rf /var/lib/apt/lists/*
-ARG SC=v0.2.33
-RUN curl -fsSLo /usr/local/bin/supercronic \
-    "https://github.com/aptible/supercronic/releases/download/${SC}/supercronic-linux-arm64" \
-    && chmod +x /usr/local/bin/supercronic
-WORKDIR /app
-COPY pyproject.toml uv.lock ./
-RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
-COPY . .
-ENV PATH="/app/.venv/bin:$PATH"
-```
+`main` push → Actions 자동 빌드. OMV-compose 에서 스택 → Pull → Up.
+`hf-cache`·`state` 볼륨 유지. `DRY_RUN` 토글만으로 리허설 ↔ 가동 전환.
 
-`util-linux` = `flock` 제공 (스케줄 잡 중복 실행 방지).
-
-### 4.6 private repo 대응
-
-- git build context는 **public repo에서 무마찰**. 코드에 비밀 없음(키는 전부 `.env`, git-ignored) → **repo public 권고**.
-- private 유지 시: GitHub Actions로 ARM64 이미지를 `ghcr.io`에 push, 컴포즈는 `build:` 대신 `image: ghcr.io/OWNER/aegisvest:latest`. OMV에 GHCR 로그인 1회 필요.
-
-### 4.7 수동 실행
+### 4.7 수동 실행 / 확인
 
 ```bash
-docker compose run --rm aegisvest python -m aegisvest.backtest --from 2005
+docker logs -f aegisvest
+docker exec aegisvest python -m aegisvest.watchdog
+docker exec -e DRY_RUN=true aegisvest python -m aegisvest.main       # 무접촉 리허설
+docker exec aegisvest python -m aegisvest.report performance
 ```
 
-로그: `docker logs -f <스택명>-aegisvest-1`. 리소스: 1 CPU / 2GB 충분, 평소 유휴. 스택 전부 ARM64 호환 (pandas/numpy ARM 휠, DeepSeek/FRED는 HTTP). GPU 불필요.
+리소스: 평소 유휴(supercronic ~5MB). bge-m3 상주 시 ~3GB → `AEGIS_MEM=4g` 권장.
+전부 arm64 호환 (pandas/numpy/torch aarch64 휠, DeepSeek/FRED 는 HTTP). GPU 불필요.
 
 ---
 

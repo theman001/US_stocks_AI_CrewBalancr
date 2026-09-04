@@ -38,7 +38,7 @@ uv run pytest -q
 uv run pytest tests/test_tools/
 uv run ruff check . && uv run ruff format .
 uv run mypy aegisvest
-docker compose build
+docker build -t aegisvest:local .   # 이미지 (CI 는 GH Actions → GHCR arm64, deploy/DEPLOY.md)
 python -m aegisvest.main        # 주간 크루
 python -m aegisvest.watchdog    # 일일 감시견
 python -m aegisvest.report performance   # 성과 조회

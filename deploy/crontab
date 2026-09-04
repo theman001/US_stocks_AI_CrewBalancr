@@ -1,0 +1,12 @@
+# AegisVest 스케줄 — supercronic 이 읽는다 (Dockerfile COPY . . → /app/deploy/crontab).
+# 스케줄 변경 = 이 파일 수정 → push → GH Actions 재빌드 → Radxa 에서 Pull + Up.
+CRON_TZ=Asia/Seoul
+
+# 매일 06:30 KST — 감시견 (매크로 점수 누적 + 위기 감지 + 일일 NAV 마킹)
+30 6 * * *  flock -n /tmp/wd.lock   python -m aegisvest.watchdog
+
+# 일요일 22:00 KST — 주간 풀 크루 (파이프라인 → 9 에이전트 → 체결 → 리포트)
+0 22 * * 0  flock -n /tmp/crew.lock python -m aegisvest.main
+
+# 월요일 23:00 KST — 판단 일기 배치: 채점(결정론) → 반성(⑨ LLM) → RAG 색인
+0 23 * * 1  flock -n /tmp/diary.lock sh -c 'python -m aegisvest.diary.evaluate; python -m aegisvest.diary.reviewer; python -m aegisvest.diary.rag'

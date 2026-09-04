@@ -1,0 +1,27 @@
+# 이미지에 넣을 필요 없는 것 (COPY . . 대상 축소)
+.git
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+*.egg-info
+.claude
+docs
+report
+tests
+*.md
+!README.md
+.env
+*.key
+state
+outputs
+logs
+data/cache
+*.parquet
+*.duckdb
+*.log
+.ipynb_checkpoints

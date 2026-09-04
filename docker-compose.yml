@@ -1,48 +1,27 @@
-# AegisVest 단일 스택
+# AegisVest — 단일 스택. OMV8 openmediavault-compose 에 이 파일 하나만 붙여넣고 Up.
 #
-# 로컬 개발 / repo 체크아웃이 있는 NAS: 아래 build: . 그대로.
-# OMV8 openmediavault-compose 에 이 파일 하나만 등록 (repo 없이): build 를 아래로 교체 —
-#   build:
-#     context: "https://github.com/theman001/US_stocks_AI_CrewBalancr.git#main"
-#   (private repo면 대신 image: ghcr.io/theman001/aegisvest:latest — report/phase-2 §4.6)
+# 이미지는 GHCR 에서 pull (빌드는 GitHub Actions — .github/workflows/docker-publish.yml).
+# repo·Dockerfile·crontab 을 OMV 에 얹을 필요 없음. 상세: deploy/DEPLOY.md
 #
-# 요구: Docker Compose >= v2.23.1 (configs 인라인 content)
+# 갱신: OMV-compose 에서 Pull → Up (또는 `docker compose pull && docker compose up -d`).
 
 services:
   aegisvest:
-    build: .
-    image: aegisvest:local
-    command: supercronic -passthrough-logs /app/crontab
-    env_file: .env
+    image: ghcr.io/theman001/aegisvest:latest
+    container_name: aegisvest
+    env_file: .env # OMV-compose "Environment" 탭이 생성/관리 (DEEPSEEK_API_KEY 등)
     environment:
       TZ: ${TZ:-Asia/Seoul}
-      HF_HOME: /app/hf-cache
-    configs:
-      - source: crontab
-        target: /app/crontab
     volumes:
-      - ${AEGIS_DATA:-./data}/state:/app/state
-      - ${AEGIS_DATA:-./data}/cache:/app/data/cache
-      - ${AEGIS_DATA:-./data}/outputs:/app/outputs
-      - ${AEGIS_DATA:-./data}/logs:/app/logs
-      # 명명 볼륨 — 첫 생성 시 이미지에 베이크된 bge-m3 가중치를 복사받는다 (Dockerfile).
-      # bind mount 였다면 빈 호스트 디렉터리가 베이크본을 가려 재다운로드됨.
-      - hf-cache:/app/hf-cache
+      - ${AEGIS_DATA:?AEGIS_DATA 미설정 — .env 에 OMV 공유폴더 경로}/state:/app/state
+      - ${AEGIS_DATA}/outputs:/app/outputs
+      - ${AEGIS_DATA}/cache:/app/data/cache
+      - ${AEGIS_DATA}/logs:/app/logs
+      - hf-cache:/app/hf-cache # bge-m3 가중치 (~2.3GB) — 첫 다운로드 후 영구 보존
     restart: unless-stopped
-    # bge-m3(~2.3GB 상주) + chromadb + crew — 판단 일기 RAG 배치·회상 시 필요. 2g 면 OOM.
-    mem_limit: 4g
-    cpus: 2.0
+    # bge-m3 상주(~3GB) + chromadb + crew. RAM 8GB 미만 보드면 .env 에서 낮추고 swap 확보.
+    mem_limit: ${AEGIS_MEM:-4g}
+    cpus: 2
 
 volumes:
-  hf-cache:  # bge-m3 가중치 (~2.3GB) — 이미지 베이크본을 첫 up 시 채우고 이후 유지
-
-configs:
-  crontab:
-    content: |
-      CRON_TZ=Asia/Seoul
-      # 매일 06:30 KST — 감시견 + 일일 매크로 점수
-      30 6 * * *  flock -n /tmp/wd.lock   python -m aegisvest.watchdog
-      # 일요일 22:00 KST — 주간 풀 크루
-      0 22 * * 0  flock -n /tmp/crew.lock python -m aegisvest.main
-      # 월요일 23:00 KST — 판단 일기: 채점(결정론) → 반성(⑨ LLM) → RAG 색인 (Phase 4)
-      0 23 * * 1  flock -n /tmp/diary.lock sh -c 'python -m aegisvest.diary.evaluate && python -m aegisvest.diary.reviewer && python -m aegisvest.diary.rag'
+  hf-cache:
